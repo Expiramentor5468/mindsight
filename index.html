@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="description" content="Hands-free self-guided perception training and controlled testing." />
+  <style>
+:root{
+  --bg:#07111f;--panel:#0f1c2d;--panel2:#13243a;--line:#253b57;--text:#eef5ff;--muted:#9fb1c8;
+  --accent:#72c7ff;--accent2:#a3f6d1;--warn:#ffd88a;--bad:#ffb0b0;--good:#9ff0c9;--shadow:0 18px 55px rgba(0,0,0,.25);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark
+}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 40% -10%,#173459 0,#07111f 42%,#040a12 100%);color:var(--text)}
+button,input,select,textarea{font:inherit}.topbar{max-width:1080px;margin:auto;padding:22px 18px 8px;display:flex;align-items:center;justify-content:space-between;gap:15px}.brand{font-weight:900;font-size:1.45rem}.tagline{color:var(--muted);font-size:.9rem;margin-top:3px}
+.nav{max-width:1080px;margin:0 auto;padding:8px 18px 16px;display:grid;grid-template-columns:repeat(6,1fr);gap:7px;position:sticky;top:0;z-index:10;background:linear-gradient(#07111ff2,#07111ff2)}.nav-btn,.button{border:1px solid var(--line);color:var(--text);background:#0b1727;border-radius:13px;padding:11px 13px;cursor:pointer}.nav-btn.active{background:#172942;border-color:#4b759e}.button.primary{background:linear-gradient(135deg,#3479b5,#255c91);border-color:#5a97ca;font-weight:800}.button.secondary{background:#14263d}.button.ghost{background:transparent}.button:disabled{opacity:.45;cursor:not-allowed}
+main{max-width:1080px;margin:auto;padding:0 18px 70px}.view{display:none}.view.active{display:block}.card{background:linear-gradient(180deg,rgba(20,37,59,.97),rgba(12,25,41,.97));border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow);margin-bottom:15px}.hero{padding:clamp(24px,5vw,48px)}.hero h1,.section-head h1{margin:.4rem 0 1rem}.hero h1{font-size:clamp(2rem,5vw,3.5rem);max-width:850px;line-height:1.04}.hero p,.lede,.card p{color:var(--muted);line-height:1.6}.kicker{font-size:.73rem;letter-spacing:.16em;font-weight:900;color:var(--accent2)}.action-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.grid{display:grid;gap:15px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}.stack{display:grid;gap:13px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:8px}.section-head h1{font-size:2rem}.banner{border:1px solid var(--line);border-radius:15px;padding:13px 15px;margin:15px 0}.banner.good{border-color:#376f62;background:#0d2824}.banner.warn{border-color:#77623a;background:#282213}.banner.bad{border-color:#824b4b;background:#2a1719}.command-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;color:var(--muted)}.command-grid b{color:var(--text)}
+.stage-card{display:grid;grid-template-columns:58px 1fr auto;gap:16px;align-items:center}.stage-num{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;border:1px solid var(--line);background:#081524;color:var(--accent);font-weight:900}.stage-card h2,.game-card h2{margin:0 0 7px}.stage-card p,.game-card p{margin:0}.stage-card.done{opacity:.7}.pill{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:.75rem;color:var(--accent2)}.game-card{display:flex;flex-direction:column;min-height:220px}.game-card .action-row{margin-top:auto}.chance{font-size:.75rem;color:var(--accent2);font-weight:800}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.form-card label,.test-builder label,.post-card label{display:grid;gap:7px;color:var(--muted);margin-bottom:13px}.form-card input,.form-card select,.test-builder input,.test-builder select,.post-card textarea{width:100%;background:#091625;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px}.check-row{grid-template-columns:auto 1fr!important;align-items:start}.check-row input{width:auto!important;margin-top:4px}.check-row small{display:block;color:var(--muted);margin-top:3px}.status-text{margin-top:12px;color:var(--muted)}.subtle{border-style:dashed}.metric{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:18px}.metric span{color:var(--muted);font-size:.82rem}.metric strong{display:block;font-size:1.9rem;margin-top:5px}.result-row{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid var(--line)}.result-row:last-child{border-bottom:0}.session-table{width:100%;border-collapse:collapse}.session-table th,.session-table td{padding:10px 8px;text-align:left;border-bottom:1px solid var(--line);font-size:.88rem}.session-table th{color:var(--muted)}
+.session-view{position:fixed;inset:0;z-index:100;background:#000;touch-action:manipulation}.stimulus{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:#000;color:#fff}.stimulus-fill{position:absolute;inset:0}.stimulus-symbol{font-size:min(56vw,56vh);font-weight:950;line-height:1}.direction-dot{position:absolute;width:min(18vw,150px);height:min(18vw,150px);border-radius:50%;background:#fff;box-shadow:0 0 70px 34px rgba(255,255,255,.85)}.dir-left{left:5%;top:50%;transform:translateY(-50%)}.dir-right{right:5%;top:50%;transform:translateY(-50%)}.dir-up{top:5%;left:50%;transform:translateX(-50%)}.dir-down{bottom:5%;left:50%;transform:translateX(-50%)}.session-overlay{position:absolute;inset:0;pointer-events:none}.session-indicator{position:absolute;bottom:max(10px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(0,0,0,.22);color:rgba(255,255,255,.22);font-size:.72rem;border-radius:999px;padding:4px 8px;white-space:nowrap}.preflight-panel,.post-panel{position:absolute;inset:0;display:grid;place-items:center;background:rgba(3,8,14,.96);padding:20px}.preflight-card,.post-card{width:min(680px,100%);background:#101e31;border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:var(--shadow)}.preflight-card h1,.post-card h1{margin:.45rem 0 1rem}.preflight-card p{color:var(--muted);line-height:1.55}.preflight-voice{padding:11px 13px;border-radius:12px;background:#091625;border:1px solid var(--line);margin-top:14px}.touch-answers{position:absolute;left:12px;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;z-index:5}.touch-answer{min-height:58px;background:rgba(0,0,0,.65);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:13px;font-weight:800}.post-card textarea{resize:vertical}.post-card .score-big{font-size:2.5rem;font-weight:950}.post-card .score-note{color:var(--muted)}
+@media(max-width:760px){.nav{grid-template-columns:repeat(6,minmax(68px,1fr));overflow-x:auto}.grid.two,.grid.four,.field-grid{grid-template-columns:1fr}.stage-card{grid-template-columns:50px 1fr}.stage-card>.action-row{grid-column:1/-1}.command-grid{grid-template-columns:1fr}.topbar,main,.nav{padding-left:13px;padding-right:13px}.hero{padding:24px}.section-head{align-items:flex-start}.session-indicator{display:none}}
+
+  </style>
+  <title>Mindsight Lab</title>
+</head>
+<body>
+  <div id="appShell">
+    <header class="topbar">
+      <div>
+        <div class="brand">Mindsight Lab</div>
+        <div class="tagline">Hands-free training · controlled testing</div>
+      </div>
+      <button id="installBtn" class="button ghost" hidden>Install</button>
+    </header>
+
+    <nav class="nav" aria-label="Primary navigation">
+      <button data-view="home" class="nav-btn active">Home</button>
+      <button data-view="learn" class="nav-btn">Learn</button>
+      <button data-view="practice" class="nav-btn">Practice</button>
+      <button data-view="test" class="nav-btn">Test</button>
+      <button data-view="results" class="nav-btn">Results</button>
+      <button data-view="settings" class="nav-btn">Settings</button>
+    </nav>
+
+    <main>
+      <section id="view-home" class="view active">
+        <article class="hero card">
+          <div class="kicker">BLINDFOLD-FIRST DESIGN</div>
+          <h1>Put the blindfold on once. The app runs the whole block.</h1>
+          <p>Targets stay on screen until you answer. Voice listening is automatic by default. The app confirms, scores, advances, and ends the session without requiring you to remove the blindfold.</p>
+          <div class="action-row">
+            <button class="button primary" data-go="learn">Start guided training</button>
+            <button class="button secondary" data-go="practice">Choose an exercise</button>
+          </div>
+        </article>
+
+        <div id="environmentBanner" class="banner"></div>
+
+        <div class="grid two">
+          <article class="card">
+            <h2>Hands-free commands</h2>
+            <div class="command-grid">
+              <span><b>pause</b> pause the block</span>
+              <span><b>resume</b> continue</span>
+              <span><b>repeat</b> hear the prompt again</span>
+              <span><b>skip</b> score no answer and move on</span>
+              <span><b>stop session</b> end the block</span>
+            </div>
+          </article>
+          <article class="card">
+            <h2>Session rule</h2>
+            <p>Training can give immediate feedback. Challenge and Controlled Test do not reveal correctness until the block is complete.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-learn" class="view">
+        <div class="section-head">
+          <div><div class="kicker">GUIDED PATH</div><h1>Five stages, not five deadlines</h1></div>
+          <button id="resetProgressBtn" class="button ghost">Reset progress</button>
+        </div>
+        <p class="lede">Treat each stage as a milestone. Repeat it as long as useful, or move on when you want a harder condition.</p>
+        <div id="learnStages" class="stack"></div>
+      </section>
+
+      <section id="view-practice" class="view">
+        <div class="section-head"><div><div class="kicker">PRACTICE LAB</div><h1>Pick one skill</h1></div></div>
+        <div id="practiceCards" class="grid two"></div>
+      </section>
+
+      <section id="view-test" class="view">
+        <div class="section-head"><div><div class="kicker">CONTROLLED BLOCKS</div><h1>Test what survives stronger controls</h1></div></div>
+        <article class="card test-builder">
+          <div class="field-grid">
+            <label>Exercise<select id="testGame"></select></label>
+            <label>Trials<input id="testTrials" type="number" min="8" max="100" step="1" value="24" /></label>
+            <label>Condition<select id="testCondition"></select></label>
+            <label>Mode<select id="testMode"><option value="challenge">Challenge</option><option value="controlled">Controlled Test</option></select></label>
+          </div>
+          <label>Condition notes<input id="testNotes" type="text" placeholder="e.g. eye patches + fitted mask, room lights on, screen 5 ft away" /></label>
+          <div class="action-row"><button id="startTestBtn" class="button primary">Start hands-free test</button></div>
+        </article>
+        <article class="card subtle">
+          <h2>Controlled Test adds a target commitment</h2>
+          <p>The complete randomized target sequence is generated before the first trial and hashed. The hash is saved with the session so the sequence cannot be silently changed after answers are recorded.</p>
+        </article>
+      </section>
+
+      <section id="view-results" class="view">
+        <div class="section-head">
+          <div><div class="kicker">DATA</div><h1>Results</h1></div>
+          <button id="exportBtn" class="button ghost">Export JSON</button>
+        </div>
+        <div id="resultMetrics" class="grid four"></div>
+        <article class="card"><h2>By condition</h2><div id="conditionTable"></div></article>
+        <article class="card"><h2>Recent sessions</h2><div id="sessionTable"></div></article>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="section-head"><div><div class="kicker">DEFAULTS</div><h1>Settings</h1></div></div>
+        <article class="card form-card">
+          <label class="check-row"><input id="voiceEnabled" type="checkbox" checked /><span><b>Hands-free voice answers</b><small>On by default. Required for solo blindfolded use.</small></span></label>
+          <label class="check-row"><input id="speakPrompts" type="checkbox" checked /><span><b>Spoken prompts and session status</b></span></label>
+          <label class="check-row"><input id="askConfidence" type="checkbox" /><span><b>Ask confidence after every answer</b><small>You can also say “blue, confidence four” in one utterance.</small></span></label>
+          <label class="check-row"><input id="keepAwake" type="checkbox" checked /><span><b>Keep screen awake during sessions</b></span></label>
+          <label>Countdown before blindfolded block<select id="countdownSeconds"><option value="5">5 seconds</option><option value="10" selected>10 seconds</option><option value="15">15 seconds</option></select></label>
+          <label>Default trials<input id="defaultTrials" type="number" min="4" max="100" value="20" /></label>
+          <label>Default condition<select id="defaultCondition"></select></label>
+          <div class="action-row"><button id="saveSettingsBtn" class="button primary">Save settings</button><button id="voiceTestBtn" class="button secondary">Test microphone</button></div>
+          <div id="voiceTestStatus" class="status-text"></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <section id="sessionView" class="session-view" hidden aria-live="polite">
+    <div id="stimulus" class="stimulus"></div>
+    <div id="sessionOverlay" class="session-overlay" aria-hidden="true">
+      <div id="sessionIndicator" class="session-indicator"></div>
+    </div>
+    <div id="touchAnswers" class="touch-answers" hidden></div>
+    <div id="preflightPanel" class="preflight-panel" hidden>
+      <div class="preflight-card">
+        <div class="kicker">READY CHECK</div>
+        <h1 id="preflightTitle">Session ready</h1>
+        <p id="preflightText"></p>
+        <div id="preflightVoice" class="preflight-voice"></div>
+        <div class="action-row">
+          <button id="beginBlindfoldBtn" class="button primary">Begin countdown</button>
+          <button id="cancelSessionBtn" class="button ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="postSessionPanel" class="post-panel" hidden>
+      <div class="post-card">
+        <div class="kicker">BLOCK COMPLETE</div>
+        <h1>Remove your blindfold</h1>
+        <div id="postSummary"></div>
+        <label>Session notes<textarea id="postNotes" rows="3" placeholder="What did the perceptions feel like? Any unusual lights, images, or changes?"></textarea></label>
+        <div class="action-row"><button id="savePostBtn" class="button primary">Save and view results</button><button id="repeatSessionBtn" class="button secondary">Repeat same block</button></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+'use strict';
+const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
+const COLORS=[{label:'Red',value:'#ff2d2d'},{label:'Blue',value:'#157cff'},{label:'Yellow',value:'#ffd400'},{label:'Green',value:'#1ec95b'}];
+const SHAPES=[{label:'Circle',symbol:'●'},{label:'Triangle',symbol:'▲'},{label:'Square',symbol:'■'},{label:'Cross',symbol:'✚'}];
+const DIRECTIONS=['Left','Right','Up','Down'];
+const CONDITIONS=['Eyes closed only','Loose mask','Fitted mask','Eye patches + mask','Dark room','Target behind user','Opaque barrier','Remote/digital target'];
+
+const GAMES={
+  light:{id:'light',title:'Light / Dark',chance:.5,description:'Start with the simplest distinction: a bright screen or a black screen.',answers:['Light','Dark'],make(){return{answer:rand(2)?'Light':'Dark'}},render(t,el){el.innerHTML='';el.style.background=t.answer==='Light'?'#fff':'#000';el.style.color=t.answer==='Light'?'#000':'#fff'},prompt:'Light or dark?',synonyms:{light:['light','bright','white'],dark:['dark','black','off']}},
+  direction:{id:'direction',title:'Directional Light',chance:.25,description:'Locate a bright stimulus at left, right, top, or bottom.',answers:DIRECTIONS,make(){return{answer:DIRECTIONS[rand(4)]}},render(t,el){el.innerHTML=`<div class="direction-dot dir-${t.answer.toLowerCase()}"></div>`;el.style.background='#000'},prompt:'Where is the light?',synonyms:{left:['left'],right:['right'],up:['up','top','above'],down:['down','bottom','below']}},
+  color:{id:'color',title:'Color',chance:.25,description:'The whole screen becomes red, blue, yellow, or green and stays that way until you answer.',answers:COLORS.map(x=>x.label),make(){return COLORS[rand(4)]},render(t,el){el.innerHTML=`<div class="stimulus-fill" style="background:${t.value}"></div>`;el.style.background=t.value},prompt:'Which color?',synonyms:{red:['red'],blue:['blue'],yellow:['yellow'],green:['green']}},
+  shape:{id:'shape',title:'Shape',chance:.25,description:'A large black circle, triangle, square, or cross on a bright field.',answers:SHAPES.map(x=>x.label),make(){return SHAPES[rand(4)]},render(t,el){el.innerHTML=`<div class="stimulus-symbol">${t.symbol}</div>`;el.style.background='#fff';el.style.color='#000'},prompt:'Which shape?',synonyms:{circle:['circle','round'],triangle:['triangle'],square:['square','box'],cross:['cross','plus']}},
+  combo:{id:'combo',title:'Color + Shape',chance:.0625,description:'Identify both properties in one spoken answer, such as “blue triangle.”',answers:[],make(){const c=COLORS[rand(4)],s=SHAPES[rand(4)];return{answer:`${c.label} ${s.label}`,color:c.value,symbol:s.symbol}},render(t,el){el.innerHTML=`<div class="stimulus-symbol" style="color:${t.color}">${t.symbol}</div>`;el.style.background='#000';el.style.color=t.color},prompt:'Say the color and shape.'}
+};
+
+const STAGES=[
+  {n:1,title:'Find the signal',game:'light',trials:20,body:'Learn what a simple light-versus-dark change feels like. Use immediate feedback and a consistent mask setup.'},
+  {n:2,title:'Locate it',game:'direction',trials:24,body:'Train left, right, top, and bottom while the screen remains the only changing stimulus.'},
+  {n:3,title:'Color discrimination',game:'color',trials:24,body:'Work with four high-contrast colors. Let the sensation appear before naming it.'},
+  {n:4,title:'Shape features',game:'shape',trials:24,body:'Shift from brightness and color toward form: curves, corners, and line structure.'},
+  {n:5,title:'Controlled challenge',game:'combo',trials:32,body:'Withhold feedback and strengthen the masking condition. See what remains when the easy cues are reduced.'}
+];
+
+const DB={
+  get settings(){return JSON.parse(localStorage.getItem('ml2-settings')||'null')||{voice:true,speak:true,confidence:false,awake:true,countdown:10,trials:20,condition:'Loose mask'}},
+  set settings(v){localStorage.setItem('ml2-settings',JSON.stringify(v))},
+  get sessions(){return JSON.parse(localStorage.getItem('ml2-sessions')||'[]')},
+  set sessions(v){localStorage.setItem('ml2-sessions',JSON.stringify(v))},
+  get progress(){return JSON.parse(localStorage.getItem('ml2-progress')||'{}')},
+  set progress(v){localStorage.setItem('ml2-progress',JSON.stringify(v))}
+};
+
+let deferredInstall=null, session=null, wakeLock=null, audioCtx=null;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+
+function rand(max){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%max}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+function normalize(s=''){return s.toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
+function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+
+function showView(name){$$('.view').forEach(v=>v.classList.remove('active'));$(`#view-${name}`).classList.add('active');$$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===name));if(name==='results')renderResults();window.scrollTo({top:0,behavior:'smooth'})}
+$$('.nav-btn').forEach(b=>b.onclick=()=>showView(b.dataset.view));$$('[data-go]').forEach(b=>b.onclick=()=>showView(b.dataset.go));
+
+function environmentCheck(){const el=$('#environmentBanner');const secure=isSecureContext;const speech=!!SR;if(location.protocol==='file:'){el.className='banner bad';el.innerHTML='<b>Local-file mode detected.</b> The visual app will load, but hands-free speech recognition is not dependable from <code>file://</code>. Host this folder over HTTPS for the intended experience.';return}if(secure&&speech){el.className='banner good';el.innerHTML='<b>Hands-free environment looks compatible.</b> Secure page and browser speech recognition are available.'}else{el.className='banner warn';el.innerHTML=`<b>Limited environment.</b> ${secure?'Secure page detected.':'HTTPS is required for the intended voice experience.'} ${speech?'Speech recognition exists.':'This browser does not expose SpeechRecognition.'}`}}
+
+function renderLearn(){const p=DB.progress,w=$('#learnStages');w.innerHTML='';STAGES.forEach(s=>{const d=!!p[s.n],el=document.createElement('article');el.className=`card stage-card${d?' done':''}`;el.innerHTML=`<div class="stage-num">${s.n}</div><div><h2>${s.title}</h2><p>${s.body}</p></div><div class="action-row"><span class="pill">${d?'Completed':'Stage '+s.n}</span><button class="button primary">${d?'Repeat':'Start'}</button></div>`;$('button',el).onclick=()=>prepareSession({gameId:s.game,trials:s.trials,mode:s.n===5?'challenge':'training',guidedStage:s.n});w.appendChild(el)})}
+function renderPractice(){const w=$('#practiceCards');w.innerHTML='';Object.values(GAMES).forEach(g=>{const el=document.createElement('article');el.className='card game-card';el.innerHTML=`<div class="chance">CHANCE BASELINE ${fmtPct(g.chance)}</div><h2>${g.title}</h2><p>${g.description}</p><div class="action-row"><button class="button primary">Start training</button><button class="button secondary">Challenge</button></div>`;const [a,b]=$$('button',el);a.onclick=()=>prepareSession({gameId:g.id,mode:'training'});b.onclick=()=>prepareSession({gameId:g.id,mode:'challenge'});w.appendChild(el)})}
+function populateSelects(){['#testGame'].forEach(sel=>{const e=$(sel);e.innerHTML=Object.values(GAMES).map(g=>`<option value="${g.id}">${g.title}</option>`).join('')});['#testCondition','#defaultCondition'].forEach(sel=>{$(sel).innerHTML=CONDITIONS.map(c=>`<option>${c}</option>`).join('')})}
+
+function loadSettings(){const s=DB.settings;$('#voiceEnabled').checked=s.voice;$('#speakPrompts').checked=s.speak;$('#askConfidence').checked=s.confidence;$('#keepAwake').checked=s.awake;$('#countdownSeconds').value=String(s.countdown);$('#defaultTrials').value=s.trials;$('#defaultCondition').value=s.condition;$('#testTrials').value=Math.max(24,s.trials);$('#testCondition').value=s.condition}
+$('#saveSettingsBtn').onclick=()=>{DB.settings={voice:$('#voiceEnabled').checked,speak:$('#speakPrompts').checked,confidence:$('#askConfidence').checked,awake:$('#keepAwake').checked,countdown:Number($('#countdownSeconds').value),trials:Number($('#defaultTrials').value),condition:$('#defaultCondition').value};$('#saveSettingsBtn').textContent='Saved';setTimeout(()=>$('#saveSettingsBtn').textContent='Save settings',850);environmentCheck()};
+$('#resetProgressBtn').onclick=()=>{if(confirm('Reset guided-stage completion?')){DB.progress={};renderLearn()}};
+$('#startTestBtn').onclick=()=>prepareSession({gameId:$('#testGame').value,trials:Number($('#testTrials').value),condition:$('#testCondition').value,notes:$('#testNotes').value.trim(),mode:$('#testMode').value});
+
+class VoiceLoop{
+  constructor(){this.rec=null;this.want=false;this.suspended=false;this.restarting=false;this.lastError='';}
+  available(){return !!SR&&location.protocol!=='file:'}
+  build(){if(!SR)return null;const r=new SR();r.lang='en-US';r.interimResults=false;r.continuous=false;r.maxAlternatives=5;r.onresult=e=>this.onResult(e);r.onerror=e=>this.onError(e);r.onend=()=>this.onEnd();return r}
+  start(){if(!session||!session.voiceEnabled||!this.available())return;this.want=true;this.suspended=false;this.safeStart()}
+  safeStart(){if(!this.want||this.suspended||!session||session.ttsActive)return;if(this.restarting)return;this.restarting=true;setTimeout(()=>{this.restarting=false;if(!this.want||this.suspended||!session||session.ttsActive)return;try{this.rec=this.build();this.rec.start();session.listening=true;updateIndicator()}catch(e){this.lastError=e.name||String(e);session.listening=false;updateIndicator();if(!['NotAllowedError','SecurityError'].includes(e.name))setTimeout(()=>this.safeStart(),700)}},180)}
+  stop(){this.want=false;this.suspended=true;session&&(session.listening=false);try{this.rec?.abort()}catch{}this.rec=null;updateIndicator()}
+  suspend(){this.suspended=true;session&&(session.listening=false);try{this.rec?.abort()}catch{}updateIndicator()}
+  resume(){if(!this.want)this.want=true;this.suspended=false;this.safeStart()}
+  onEnd(){session&&(session.listening=false);updateIndicator();if(this.want&&!this.suspended&&!session?.ttsActive)this.safeStart()}
+  onError(e){this.lastError=e.error||'unknown';session&&(session.listening=false);updateIndicator();if(['not-allowed','service-not-allowed'].includes(e.error)){this.want=false;if(session){session.voiceFatal=true;speakThen('Microphone access is unavailable. Remove your blindfold and check the screen.',()=>{})}}}
+  onResult(e){if(!session)return;const texts=[];for(const alt of e.results[0])texts.push(alt.transcript);handleUtterances(texts)}
+}
+const voice=new VoiceLoop();
+
+async function testVoice(){const out=$('#voiceTestStatus');if(location.protocol==='file:'){out.textContent='Voice recognition cannot be validated from a local file. Serve the app over HTTPS first.';return}if(!SR){out.textContent='This browser does not expose the Web Speech Recognition API.';return}out.textContent='Listening. Say “blue”.';let done=false;const r=new SR();r.lang='en-US';r.interimResults=false;r.maxAlternatives=3;r.onresult=e=>{done=true;out.textContent=`Heard: “${e.results[0][0].transcript}”. Voice input is working.`};r.onerror=e=>{done=true;out.textContent=`Voice test failed: ${e.error}. Check microphone permission and HTTPS.`};r.onend=()=>{if(!done)out.textContent='Recognition ended without hearing an answer. Try again in a quieter room.'};try{r.start()}catch(e){out.textContent=`Could not start recognition: ${e.message}`}}
+$('#voiceTestBtn').onclick=testVoice;
+
+async function prepareSession(opts){const s=DB.settings,g=GAMES[opts.gameId],trials=Number(opts.trials||s.trials);const sequence=Array.from({length:trials},()=>g.make());const commitment=await hashSequence(sequence.map(x=>x.answer));session={id:crypto.randomUUID?.()||String(Date.now()),gameId:g.id,title:g.title,mode:opts.mode||'training',condition:opts.condition||s.condition,conditionNotes:opts.notes||'',guidedStage:opts.guidedStage||null,trialsPlanned:trials,sequence,commitment,records:[],index:0,current:null,pendingAnswer:null,state:'preflight',voiceEnabled:s.voice,speakEnabled:s.speak,askConfidence:s.confidence,keepAwake:s.awake,countdown:s.countdown,ttsActive:false,listening:false,paused:false,voiceFatal:false,startedAt:null,finishedAt:null};$('#appShell').hidden=true;$('#sessionView').hidden=false;$('#preflightPanel').hidden=false;$('#postSessionPanel').hidden=true;$('#touchAnswers').hidden=true;$('#stimulus').innerHTML='';$('#stimulus').style.background='#000';$('#preflightTitle').textContent=`${g.title} · ${modeLabel(session.mode)}`;$('#preflightText').textContent=`${trials} trials · ${session.condition}. After you press Begin, you have ${session.countdown} seconds to put on the blindfold. The target stays displayed until your answer is recorded.`;const v=$('#preflightVoice');if(session.voiceEnabled){v.innerHTML=voice.available()?'<b>Voice answering:</b> ready. The app will listen automatically throughout the block.':'<b>Voice answering:</b> unavailable in this environment. Solo blindfolded operation requires HTTPS and a browser with speech recognition.';$('#beginBlindfoldBtn').disabled=!voice.available()}else{v.innerHTML='<b>Voice answering is disabled.</b> Touch answer controls will appear on screen.';$('#beginBlindfoldBtn').disabled=false}updateIndicator()}
+
+$('#cancelSessionBtn').onclick=cancelSession;$('#beginBlindfoldBtn').onclick=startBlindfoldBlock;
+function cancelSession(){voice.stop();releaseWake();session=null;$('#sessionView').hidden=true;$('#appShell').hidden=false}
+async function startBlindfoldBlock(){if(!session)return;$('#preflightPanel').hidden=true;session.startedAt=new Date().toISOString();session.state='countdown';if(session.keepAwake)await requestWake();if(session.voiceEnabled)voice.want=true;for(let n=session.countdown;n>=1;n--){if(!session)return;if(n===session.countdown||n<=3)await speakAsync(n===session.countdown?`Put on your blindfold. Session begins in ${n} seconds.`:String(n));else await sleep(850)}await speakAsync('Begin.');await nextTrial()}
+
+async function nextTrial(){if(!session)return;if(session.index>=session.sequence.length){await finishBlock();return}session.current=session.sequence[session.index];session.pendingAnswer=null;session.state='answer';renderStimulus();updateIndicator();if(!session.voiceEnabled)renderTouchAnswers();else $('#touchAnswers').hidden=true;if(session.speakEnabled)await speakAsync(GAMES[session.gameId].prompt);if(session.voiceEnabled)voice.start();armNoAnswerReminder()}
+function renderStimulus(){const el=$('#stimulus');el.innerHTML='';el.style.background='#000';el.style.color='#fff';GAMES[session.gameId].render(session.current,el)}
+function renderTouchAnswers(){const g=GAMES[session.gameId],w=$('#touchAnswers');const answers=g.id==='combo'?COLORS.flatMap(c=>SHAPES.map(s=>`${c.label} ${s.label}`)):g.answers;w.innerHTML=answers.map(a=>`<button class="touch-answer" data-answer="${a}">${a}</button>`).join('');$$('.touch-answer',w).forEach(b=>b.onclick=()=>acceptAnswer(b.dataset.answer,null,'touch'));w.hidden=false}
+function armNoAnswerReminder(){clearTimeout(session?.reminder);if(!session||!session.voiceEnabled)return;session.reminder=setTimeout(async()=>{if(!session||session.state!=='answer'||session.pendingAnswer)return;voice.suspend();await speakAsync(`I didn't hear an answer. ${GAMES[session.gameId].prompt}`);voice.resume();armNoAnswerReminder()},12000)}
+
+function handleUtterances(texts){if(!session)return;const joined=texts.map(normalize);for(const t of joined){if(commandFrom(t))return}if(session.paused)return;if(session.state==='confidence'){const c=parseConfidence(joined);if(c){acceptConfidence(c);return}voice.suspend();speakThen('Say a confidence number from one to five.',()=>voice.resume());return}if(session.state!=='answer')return;const parsed=parseAnswer(joined,GAMES[session.gameId]);if(parsed){acceptAnswer(parsed.answer,parsed.confidence,'voice');return}voice.suspend();speakThen(`I didn't catch a valid answer. ${GAMES[session.gameId].prompt}`,()=>voice.resume())}
+
+function commandFrom(t){if(/\b(stop session|end session|finish session|quit session)\b/.test(t)){voice.stop();finishBlock(true);return true}if(/\bpause\b/.test(t)){pauseSession();return true}if(/\bresume\b/.test(t)){resumeSession();return true}if(/\brepeat\b/.test(t)){voice.suspend();speakThen(session.state==='confidence'?'Confidence one to five.':GAMES[session.gameId].prompt,()=>voice.resume());return true}if(/\bskip\b/.test(t)&&session.state==='answer'){acceptSkip();return true}return false}
+function parseAnswer(texts,g){let confidence=parseConfidence(texts);for(const t of texts){if(g.id==='combo'){const color=COLORS.find(c=>new RegExp(`\\b${c.label.toLowerCase()}\\b`).test(t));const shape=SHAPES.find(s=>new RegExp(`\\b${s.label.toLowerCase()}\\b`).test(t)|| (s.label==='Cross'&&/\bplus\b/.test(t)));if(color&&shape)return{answer:`${color.label} ${shape.label}`,confidence}}else{for(const a of g.answers){const keys=(g.synonyms?.[a.toLowerCase()]||[a.toLowerCase()]);if(keys.some(k=>new RegExp(`\\b${k}\\b`).test(t)))return{answer:a,confidence}}}}return null}
+function parseConfidence(texts){const words={one:1,two:2,three:3,four:4,five:5};for(const t of texts){let m=t.match(/\bconfidence\s*(one|two|three|four|five|[1-5])\b/);if(m)return words[m[1]]||Number(m[1]);if(session?.state==='confidence'){m=t.match(/\b(one|two|three|four|five|[1-5])\b/);if(m)return words[m[1]]||Number(m[1])}}return null}
+
+async function acceptAnswer(answer,confidence,source){if(!session||session.state!=='answer')return;clearTimeout(session.reminder);voice.suspend();session.pendingAnswer={answer,confidence,source,at:new Date().toISOString()};if(session.askConfidence&&!confidence){session.state='confidence';await speakAsync('Confidence one to five.');voice.resume();return}await finalizeAnswer(confidence||null)}
+async function acceptConfidence(n){if(!session||session.state!=='confidence'||!session.pendingAnswer)return;voice.suspend();await finalizeAnswer(n)}
+async function acceptSkip(){if(!session||session.state!=='answer')return;clearTimeout(session.reminder);voice.suspend();session.pendingAnswer={answer:null,confidence:null,source:'skip',at:new Date().toISOString()};await finalizeAnswer(null)}
+async function finalizeAnswer(confidence){const p=session.pendingAnswer,t=session.current.answer,correct=p.answer===t;session.records.push({trial:session.index+1,target:t,answer:p.answer,correct,confidence:confidence||p.confidence||null,source:p.source,answeredAt:p.at});session.index++;session.current=null;session.pendingAnswer=null;session.state='transition';updateIndicator();if(session.mode==='training'){await speakAsync(p.answer===null?`Skipped. Target was ${t}.`:correct?'Correct.':`Target was ${t}.`)}else{await chime()}await sleep(350);await nextTrial()}
+
+async function pauseSession(){if(!session||session.paused)return;clearTimeout(session.reminder);session.paused=true;session.stateBeforePause=session.state;session.state='paused';voice.suspend();$('#stimulus').innerHTML='';$('#stimulus').style.background='#000';await speakAsync('Paused. Say resume to continue.');voice.resume();updateIndicator()}
+async function resumeSession(){if(!session||!session.paused)return;voice.suspend();session.paused=false;session.state=session.stateBeforePause||'answer';renderStimulus();await speakAsync('Resuming.');if(session.state==='confidence')await speakAsync('Confidence one to five.');else await speakAsync(GAMES[session.gameId].prompt);voice.resume();if(session.state==='answer')armNoAnswerReminder();updateIndicator()}
+
+async function finishBlock(stoppedEarly=false){if(!session)return;clearTimeout(session.reminder);voice.stop();session.finishedAt=new Date().toISOString();session.stoppedEarly=stoppedEarly;session.state='complete';await releaseWake();$('#stimulus').innerHTML='';$('#stimulus').style.background='#000';$('#touchAnswers').hidden=true;if(session.speakEnabled)await speakAsync(stoppedEarly?'Session ended. You can remove your blindfold.':'Block complete. You can remove your blindfold.');renderPostSession();$('#postSessionPanel').hidden=false;updateIndicator()}
+function renderPostSession(){const correct=session.records.filter(r=>r.correct).length,n=session.records.length,pct=n?correct/n:0,chance=GAMES[session.gameId].chance,p=binomTail(n,correct,chance);$('#postSummary').innerHTML=`<div class="score-big">${correct}/${n} · ${fmtPct(pct)}</div><p class="score-note">Chance baseline: ${fmtPct(chance)}${n?` · one-sided binomial p ≈ ${formatP(p)}`:''}</p>${session.mode==='controlled'?`<p class="score-note">Target commitment: <code>${session.commitment.slice(0,18)}…</code></p>`:''}`;$('#postNotes').value=''}
+$('#savePostBtn').onclick=()=>{if(!session)return;session.sessionNotes=$('#postNotes').value.trim();saveSession(session);const s=session;session=null;$('#sessionView').hidden=true;$('#appShell').hidden=false;if(s.guidedStage){const p=DB.progress;p[s.guidedStage]=true;DB.progress=p;renderLearn()}showView('results')};
+$('#repeatSessionBtn').onclick=()=>{if(!session)return;const opts={gameId:session.gameId,trials:session.trialsPlanned,mode:session.mode,condition:session.condition,notes:session.conditionNotes,guidedStage:session.guidedStage};session=null;prepareSession(opts)};
+function saveSession(s){const arr=DB.sessions;arr.unshift({...s,sequence:s.sequence.map(x=>({answer:x.answer}))});DB.sessions=arr.slice(0,500)}
+
+function updateIndicator(){if(!session)return;const txt=session.state==='answer'?`${session.index+1}/${session.trialsPlanned} · ${session.listening?'listening':'voice idle'}`:session.state==="confidence"?'confidence':session.state;$('#sessionIndicator').textContent=txt}
+async function speakAsync(text){if(!session?.speakEnabled&&!['Begin.','Block complete. You can remove your blindfold.','Session ended. You can remove your blindfold.'].includes(text))return;return new Promise(resolve=>{if(!('speechSynthesis'in window)){resolve();return}session&&(session.ttsActive=true);voice.suspend();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=.95;u.onend=u.onerror=()=>{session&&(session.ttsActive=false);resolve()};speechSynthesis.speak(u)})}
+function speakThen(text,cb){speakAsync(text).then(cb)}
+function chime(){return new Promise(resolve=>{try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=620;g.gain.setValueAtTime(.0001,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.12,audioCtx.currentTime+.015);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+.16);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.18);o.onended=resolve}catch{resolve()}})}
+async function requestWake(){try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen')}catch{}}
+async function releaseWake(){try{await wakeLock?.release()}catch{}wakeLock=null}
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&session?.keepAwake&&session?.state!=='complete')await requestWake()});
+
+async function hashSequence(seq){try{if(!crypto.subtle)return'unavailable';const data=new TextEncoder().encode(JSON.stringify(seq));const h=await crypto.subtle.digest('SHA-256',data);return[...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('')}catch{return'unavailable'}}
+function modeLabel(m){return m==='training'?'Training':m==='challenge'?'Challenge':'Controlled Test'}
+function fmtPct(v){return`${Math.round(v*1000)/10}%`}
+function binomTail(n,k,p){if(!n)return 1;let sum=0;for(let i=k;i<=n;i++)sum+=comb(n,i)*(p**i)*((1-p)**(n-i));return Math.min(1,sum)}
+function comb(n,k){k=Math.min(k,n-k);let r=1;for(let i=1;i<=k;i++)r=r*(n-k+i)/i;return r}
+function formatP(p){if(p<.0001)return'<0.0001';return p.toFixed(4)}
+
+function renderResults(){const sessions=DB.sessions,total=sessions.reduce((a,s)=>a+s.records.length,0),correct=sessions.reduce((a,s)=>a+s.records.filter(r=>r.correct).length,0),confRecords=sessions.flatMap(s=>s.records).filter(r=>r.confidence);$('#resultMetrics').innerHTML=`<div class="metric"><span>Sessions</span><strong>${sessions.length}</strong></div><div class="metric"><span>Total trials</span><strong>${total}</strong></div><div class="metric"><span>Accuracy</span><strong>${total?fmtPct(correct/total):'—'}</strong></div><div class="metric"><span>Avg confidence</span><strong>${confRecords.length?(confRecords.reduce((a,r)=>a+r.confidence,0)/confRecords.length).toFixed(1)+'/5':'—'}</strong></div>`;const by={};for(const s of sessions){const k=s.condition||'Unspecified';by[k]??={n:0,c:0};by[k].n+=s.records.length;by[k].c+=s.records.filter(r=>r.correct).length}$('#conditionTable').innerHTML=Object.keys(by).length?Object.entries(by).map(([k,v])=>`<div class="result-row"><span>${escapeHtml(k)} · ${v.c}/${v.n}</span><strong>${fmtPct(v.c/v.n)}</strong></div>`).join(''):'<p class="lede">No sessions yet.</p>';$('#sessionTable').innerHTML=sessions.length?`<div style="overflow:auto"><table class="session-table"><thead><tr><th>Date</th><th>Exercise</th><th>Mode</th><th>Condition</th><th>Score</th></tr></thead><tbody>${sessions.slice(0,30).map(s=>{const c=s.records.filter(r=>r.correct).length,n=s.records.length;return`<tr><td>${new Date(s.finishedAt||s.startedAt).toLocaleDateString()}</td><td>${escapeHtml(s.title)}</td><td>${modeLabel(s.mode)}</td><td>${escapeHtml(s.condition||'')}</td><td>${c}/${n}${n?` (${fmtPct(c/n)})`:''}</td></tr>`}).join('')}</tbody></table></div>`:'<p class="lede">Completed blocks will appear here.</p>'}
+$('#exportBtn').onclick=()=>{const payload={exportedAt:new Date().toISOString(),settings:DB.settings,progress:DB.progress,sessions:DB.sessions};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`mindsight-lab-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+
+// Long press anywhere during an active blindfolded block is an emergency stop.
+let holdTimer=null;$('#sessionView').addEventListener('pointerdown',e=>{if(!session||['preflight','complete'].includes(session.state))return;if(e.target.closest('button,textarea'))return;holdTimer=setTimeout(()=>{voice.stop();finishBlock(true)},1300)});['pointerup','pointercancel','pointermove'].forEach(ev=>$('#sessionView').addEventListener(ev,()=>{clearTimeout(holdTimer);holdTimer=null}));
+
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#installBtn').hidden=false});$('#installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('#installBtn').hidden=true};if('serviceWorker'in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+populateSelects();loadSettings();renderLearn();renderPractice();renderResults();environmentCheck();
+
+  </script>
+</body>
+</html>
