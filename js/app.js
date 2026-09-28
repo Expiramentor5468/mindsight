@@ -90,6 +90,7 @@ function voiceFault(message){
  audioFault=true;
  if(checking){checking=false;checkBusy=false;clearTimeout(checkTimer);$('#checkVoice').disabled=false;$('#checkStatus').textContent=message;checkPassed=false;updateSetup();return;}
  if(!session||$('#sessionView').hidden)return;
+ if(!voiceMode){audioFault=false;preferences.spoken=false;voice.dispose();session.event('audio-unavailable',{message});save();renderSession();$('#sessionPrompt').textContent=lastPrompt;toast('Spoken audio is unavailable. Touch and keyboard controls remain ready.');return;}
  clearSessionTimer();session.pause(message);session.event('voice-fault',{message});save();renderSession();
  $('#reconnectButton').hidden=false;$('#sessionPrompt').textContent=message;$('#voiceStatus').textContent='Paused · voice needs attention';
  // Announce a microphone failure once; never recursively retry failed synthesis.
