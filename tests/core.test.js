@@ -49,3 +49,8 @@ test('notes distinguish pre-answer from post-feedback and never affect scoring',
  const s=create();s.target();s.note('rounded');s.propose('blue');s.commit();s.note('now it seems red');
  assert.equal(s.data.notes[0].afterFeedback,false);assert.equal(s.data.notes[1].afterFeedback,true);assert.equal(s.data.trials[0].answer,'blue');
 });
+test('preparation condition survives session recovery',()=>{
+ const s=create({guided:true,skipFamiliar:true});s.phase('baseline');s.pause();
+ const restored=new Session({},s.data);restored.resume();
+ assert.equal(restored.data.skipFamiliar,true);assert.equal(restored.data.phase,'baseline');
+});
