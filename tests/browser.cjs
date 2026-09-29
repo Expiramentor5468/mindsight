@@ -13,7 +13,7 @@ const {chromium}=require(require.resolve('playwright',{paths:[process.env.CODEX_
   }
   window.SpeechRecognition=FakeRecognition;
   window.__say=text=>{const r=window.__recognition;const result=[{transcript:text}];result.isFinal=true;r.onresult?.({resultIndex:0,results:[result]});};
-  Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel:()=>{},speak:u=>{window.__spoken.push(u.text);setTimeout(()=>u.onend?.(),5);}}});
+  Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel:()=>{},resume:()=>{},speak:u=>{window.__spoken.push(u.text);setTimeout(()=>u.onend?.(),5);}}});
  });
  await page.goto('http://127.0.0.1:4173');
  await page.screenshot({path:process.env.MIND_SITE_SCREENSHOT_DIR+'/mindsite-desktop.png',fullPage:true});

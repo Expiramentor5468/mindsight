@@ -38,14 +38,16 @@ export class Voice {
   if(!window.speechSynthesis){this.onFault('Spoken audio is unavailable in this browser. Choose touch mode or another browser.');return;}
   this.speaking=true;this.halt();this.onState('speaking');
   await new Promise(resolve=>{
-   const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=rate;
-   const voices=speechSynthesis.getVoices();u.voice=voices.find(v=>v.lang==='en-US'&&v.localService)||voices.find(v=>v.lang.startsWith('en'))||null;
    let done=false;let timer;
-   const finish=error=>{if(done)return;done=true;clearTimeout(timer);this.cancelSpeech=null;resolve();if(error&&token===this.generation)this.onFault('Spoken audio stopped. Replay the audio check or use touch mode.');};
+   const finish=error=>{if(done)return;done=true;clearTimeout(timer);this.cancelSpeech=null;this.utterance=null;resolve();if(error&&token===this.generation)this.onFault('Spoken audio could not play. Check that this tab is not muted and your device has a speech voice available, then retry.');};
    this.cancelSpeech=()=>finish(false);
-   u.onend=()=>finish(false);u.onerror=e=>finish(!['canceled','interrupted'].includes(e.error));
-   timer=setTimeout(()=>{speechSynthesis.cancel();finish(true);},Math.max(12000,text.length*130));
-   speechSynthesis.speak(u);
+   try{
+    const u=new SpeechSynthesisUtterance(text);this.utterance=u;u.lang='en-US';u.rate=rate;
+    const voices=speechSynthesis.getVoices();u.voice=voices.find(v=>v.lang==='en-US'&&v.localService)||voices.find(v=>v.lang.startsWith('en'))||null;
+    u.onend=()=>finish(false);u.onerror=e=>finish(!['canceled','interrupted'].includes(e.error));
+    timer=setTimeout(()=>{finish(true);if(token===this.generation)speechSynthesis.cancel();},Math.max(12000,text.length*130));
+    speechSynthesis.resume();speechSynthesis.speak(u);
+   }catch{finish(true);}
   });
   if(token!==this.generation)return;
   this.speaking=false;
