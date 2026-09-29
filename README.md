@@ -1,4 +1,4 @@
-# MindSite
+# MindSight
 
 A voice-led, experimental mindsight practice companion. Static HTML, CSS and JavaScript; no account, build step, analytics or application server.
 
@@ -28,7 +28,7 @@ Open http://localhost:4173. GitHub Pages deploys the repository using the existi
 
 Voice uses browser speech recognition and speech synthesis. Recognition requires HTTPS (or localhost), browser support, microphone permission and potentially a network connection to the browser's speech provider. Speak after each prompt finishes; recognition pauses during playback to prevent feedback from becoming an answer. The visible Pause button or Space key interrupts playback. Real microphone and audio behavior must pass the built-in check on the actual device.
 
-Sessions are stored in this browser's local storage. Export regularly; clearing site data deletes records. MindSite does not retain audio, but the browser's speech provider may process it remotely. Unreadable existing records are not overwritten. Export remains available if storage fails.
+Sessions are stored in this browser's local storage. Export regularly; clearing site data deletes records. MindSight does not retain audio, but the browser's speech provider may process it remotely. Unreadable existing records are not overwritten. Export remains available if storage fails.
 
 ## Verification
 

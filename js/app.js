@@ -64,7 +64,7 @@ async function checkVoice(){
  if(!voice.available){updateSetup();return;}
  checkPassed=false;checking=true;checkBusy=true;audioFault=false;checkChallenge=['one','two','three','four'][randomInt(4)];
  $('#checkVoice').disabled=true;$('#checkStatus').textContent='Listen to the guide, then say the phrase you hear.';updateSetup();
- await voice.speak(`Welcome to MindSite. After I finish speaking, say: ready ${checkChallenge}.`,{rate:preferences.rate});
+ await voice.speak(`Welcome to MindSight. After I finish speaking, say: ready ${checkChallenge}.`,{rate:preferences.rate});
  if(!checking||audioFault)return;
  checkBusy=false;$('#checkStatus').textContent='Listening for the phrase you heard…';voice.listen();
  checkTimer=setTimeout(()=>{if(!checking)return;voice.stop();checking=false;$('#checkVoice').disabled=false;$('#checkStatus').textContent='No matching phrase received. Check your volume and microphone, then try again.';},20000);
@@ -234,7 +234,7 @@ document.addEventListener('click',e=>{
  const start=e.target.closest('[data-start]');if(start){openSetup({exercise:start.dataset.start,mode:start.dataset.mode||mode,guided:start.dataset.guided==='true'});return;}
  const lesson=e.target.closest('[data-lesson]');if(lesson){const [w,l]=lesson.dataset.lesson.split('-').map(Number);const row=WEEKS[w];openSetup({exercise:row.exercises?.[l]||row.exercise,mode:w===3&&l===2?'measurement':'practice',guided:true,lesson:lesson.dataset.lesson,skipFamiliar:w===2&&l%2===0});return;}
  const resume=e.target.closest('[data-resume]');if(resume){const r=records.find(r=>r.id===resume.dataset.resume);openSetup({exercise:r.exercise,mode:r.mode,guided:r.guided,existing:r});return;}
- const exp=e.target.closest('[data-export]');if(exp){const r=records.find(r=>r.id===exp.dataset.export);download(r,`mindsite-${r.id}.json`);return;}
+ const exp=e.target.closest('[data-export]');if(exp){const r=records.find(r=>r.id===exp.dataset.export);download(r,`mindsight-${r.id}.json`);return;}
  const act=e.target.closest('[data-action]');if(act){if(act.dataset.action==='home'){leave();return;}handle({type:act.dataset.action});return;}
  const answer=e.target.closest('[data-answer]');if(answer){handle({type:'answer',answer:answer.dataset.answer});return;}
  if(e.target.id==='saveReflection'){const t=$('#reflectionText').value.trim();if(t){session.note(t);save();renderSession();toast('Reflection saved.');}}
@@ -251,7 +251,7 @@ $('#endButton').onclick=()=>handle({type:'end'});$('#pauseButton').onclick=()=>h
 $('#sessionBrand').onclick=e=>{e.preventDefault();handle({type:'end'});};
 $('#reconnectButton').onclick=()=>{audioFault=false;voice.dispose();voice.enabled=voiceMode;$('#reconnectButton').hidden=true;say('Reconnecting. Say resume when the listening indicator is ready.');};
 $('#commandForm').onsubmit=e=>{e.preventDefault();const value=$('#commandInput').value.trim();if(!value)return;$('#commandInput').value='';receive(value);};
-$('#exportAll').onclick=()=>download({version:3,exportedAt:stamp(),sessions:records},'mindsite-journal.json');
+$('#exportAll').onclick=()=>download({version:3,exportedAt:stamp(),sessions:records},'mindsight-journal.json');
 $('#exportLegacy').onclick=()=>{try{const raw=localStorage.getItem('ml2-sessions');if(!raw){$('#legacyStatus').textContent='No earlier records found in this browser.';return;}download({legacy:true,rawSessions:JSON.parse(raw)},'mindsight-lab-earlier-records.json');}catch{$('#legacyStatus').textContent='Earlier records could not be read.';}};
 document.addEventListener('keydown',e=>{if(!session||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement?.tagName))return;if(e.code==='Space'||e.key==='Escape'){e.preventDefault();voice.cancel();handle({type:session.data.phase==='paused'?'resume':'pause'});}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&session?.data.status==='active'){clearSessionTimer();session.pause('Page moved to the background');voice.dispose();session.event('backgrounded');save();renderSession();$('#sessionPrompt').textContent='Paused while the page was in the background. Reconnect voice, then resume.';$('#reconnectButton').hidden=!voiceMode;audioFault=voiceMode;releaseWake();}else if(!document.hidden&&session)requestWake();});

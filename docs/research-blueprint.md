@@ -1,6 +1,6 @@
 # Mindsight – research and training blueprint
 
-Research prepared September 24, 2026. This blueprint informed the MindSite rebuild. Proposed extensions are distinguished from the implemented release in the repository README.
+Research prepared September 24, 2026. This blueprint informed the MindSight rebuild. Proposed extensions are distinguished from the implemented release in the repository README.
 
 ## Recommendation
 
