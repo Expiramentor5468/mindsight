@@ -5,7 +5,7 @@ const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const percent=n=>n===null?'—':`${Math.round(n*100)}%`;
 const stamp=()=>new Date().toISOString();
 const key='mindsite-v3-sessions',prefKey='mindsite-v3-preferences';
-let records=[],preferences={rate:.94,spoken:true,large:false},storageOK=true,storageBlocked=false;
+let records=[],preferences={rate:.94,spoken:true,large:false,theme:'system'},storageOK=true,storageBlocked=false;
 try {records=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(records))throw Error('bad records');preferences={...preferences,...JSON.parse(localStorage.getItem(prefKey)||'{}')};localStorage.setItem('mindsite-storage-check','ok');localStorage.removeItem('mindsite-storage-check');}catch{storageOK=false;storageBlocked=true;records=[];}
 let session=null,setup=null,mode='practice',voiceMode=true,checkPassed=false,checkChallenge='',checkTimer=null,checkBusy=false,sessionTimer=null,wake=null,checking=false,lastPrompt='',audioFault=false;
 const voice=new Voice({onText:receive,onState:setVoiceState,onFault:voiceFault});
@@ -185,7 +185,7 @@ function repeatSession(newMode){
 }
 function renderTarget(){
  const d=session.data,ex=EXERCISES[d.exercise],visiblePhase=d.phase==='paused'?d.beforePause:d.phase,active=['familiar','explore','confirm','feedback'].includes(visiblePhase);
- $('#sessionView').classList.toggle('target-active',!!active);const el=$('#target');el.innerHTML='';el.style.background='var(--bg)';
+ $('#sessionView').classList.toggle('target-active',!!active);const el=$('#target');el.innerHTML='';el.style.background=active?'#f6f5ef':'var(--bg)';
  if(!active)return;
  const t=visiblePhase==='familiar'?familiarTarget():d.current?.target;if(!t)return;
  if(ex.kind==='color')el.style.background=COLORS[t.answer];
@@ -226,7 +226,10 @@ async function requestWake(){try{if(navigator.wakeLock)wake=await navigator.wake
 function releaseWake(){try{wake?.release();}catch{}wake=null;}
 function leave(){save();clearSessionTimer();voice.dispose();releaseWake();session=null;$('#sessionView').hidden=true;$('#shell').hidden=false;location.hash='home';route();}
 function download(data,name){const b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function applyPrefs(){document.documentElement.classList.toggle('large-text',preferences.large);$('#speechRate').value=String(preferences.rate);$('#spokenPrompts').checked=preferences.spoken;$('#largeText').checked=preferences.large;}
+const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){document.documentElement.dataset.theme=preferences.theme==='dark'||(preferences.theme!=='light'&&systemTheme.matches)?'dark':'light';}
+systemTheme.addEventListener('change',applyTheme);
+function applyPrefs(){applyTheme();$('#themeMode').value=preferences.theme||'system';document.documentElement.classList.toggle('large-text',preferences.large);$('#speechRate').value=String(preferences.rate);$('#spokenPrompts').checked=preferences.spoken;$('#largeText').checked=preferences.large;}
 $('#featuredExercises').innerHTML=['color2','compare','shapes'].map(exerciseCard).join('');$('#allExercises').innerHTML=Object.keys(EXERCISES).map(exerciseCard).join('');
 applyPrefs();renderProgram();route();
 window.addEventListener('hashchange',route);
@@ -246,7 +249,7 @@ $('#inputMode').onchange=()=>{checking=false;voice.dispose();clearTimeout(checkT
 $('#beginButton').onclick=begin;
 $('#setupDialog').addEventListener('close',()=>{if(!session){checking=false;voice.dispose();clearTimeout(checkTimer);}});
 $('#settingsButton').onclick=()=>$('#settingsDialog').showModal();
-for(const id of ['speechRate','spokenPrompts','largeText'])$('#'+id).onchange=()=>{preferences={rate:Number($('#speechRate').value),spoken:$('#spokenPrompts').checked,large:$('#largeText').checked};applyPrefs();try{localStorage.setItem(prefKey,JSON.stringify(preferences));}catch{toast('Preferences could not be saved.');}};
+for(const id of ['speechRate','spokenPrompts','largeText','themeMode'])$('#'+id).onchange=()=>{preferences={theme:$('#themeMode').value,rate:Number($('#speechRate').value),spoken:$('#spokenPrompts').checked,large:$('#largeText').checked};applyPrefs();try{localStorage.setItem(prefKey,JSON.stringify(preferences));}catch{toast('Preferences could not be saved.');}};
 $('#endButton').onclick=()=>handle({type:'end'});$('#pauseButton').onclick=()=>handle({type:session.data.phase==='paused'?'resume':'pause'});$('#helpButton').onclick=()=>handle({type:'help'});
 $('#sessionBrand').onclick=e=>{e.preventDefault();handle({type:'end'});};
 $('#reconnectButton').onclick=()=>{audioFault=false;voice.dispose();voice.enabled=voiceMode;$('#reconnectButton').hidden=true;say('Reconnecting. Say resume when the listening indicator is ready.');};
