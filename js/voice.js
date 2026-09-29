@@ -1,17 +1,21 @@
+import {LocalSpeech} from './local-speech.js?v=3.2.0';
 // Recognition is deliberately suspended during playback: synthesized answers must
 // never be interpreted as the user's next answer. Listen after each short prompt.
 export class Voice {
  constructor({onText,onState,onFault}) {
   this.onText=onText;this.onState=onState;this.onFault=onFault;
   this.Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  this.failedStarts=0;this.enabled=false;this.speaking=false;this.active=null;this.generation=0;this.restart=null;this.watchdog=null;this.cancelSpeech=null;
+  this.local=new LocalSpeech();this.engine='auto';this.failedStarts=0;this.enabled=false;this.speaking=false;this.active=null;this.generation=0;this.restart=null;this.watchdog=null;this.cancelSpeech=null;
  }
- get available(){return !!this.Recognition&&window.isSecureContext;}
+ get usesLocal(){return this.engine==='local'||!this.Recognition;}
+ get available(){return window.isSecureContext&&(this.usesLocal?this.local.supported:!!this.Recognition);}
+ get needsPreparation(){return this.usesLocal&&!this.local.ready;}
+ prepare(){return this.local.prepare();}
  listen(){this.failedStarts=0;this.enabled=true;this.start();}
  start(){
   clearTimeout(this.restart);
   if(!this.enabled||this.speaking||this.active||!this.available)return;
-  const r=new this.Recognition();this.active=r;
+  const r=this.usesLocal?this.local.createRecognition():new this.Recognition();this.active=r;
   r.lang='en-US';r.continuous=true;r.interimResults=false;r.maxAlternatives=1;
   let started=false;
   r.onstart=()=>{if(this.active!==r)return;started=true;this.failedStarts=0;clearTimeout(this.watchdog);this.onState('listening');};
@@ -26,7 +30,7 @@ export class Voice {
   r.onend=()=>{if(this.active!==r)return;this.active=null;clearTimeout(this.watchdog);
    if(this.enabled&&!this.speaking){if(!started&&++this.failedStarts>=3){this.fail('The microphone did not start. Try reconnecting.');return;}this.onState('reconnecting');this.restart=setTimeout(()=>this.start(),started?300:1200);}
   };
-  try {this.onState('connecting');r.start();this.watchdog=setTimeout(()=>{if(this.active===r&&!started)this.fail('The microphone did not start. Try reconnecting.');},7000);}catch{this.fail('The microphone could not start. Try reconnecting.');}
+  try {this.onState('connecting');r.start();this.watchdog=setTimeout(()=>{if(this.active===r&&!started)this.fail('The microphone did not start. Try reconnecting.');},this.usesLocal?20000:7000);}catch{this.fail('The microphone could not start. Try reconnecting.');}
  }
  halt(){clearTimeout(this.restart);clearTimeout(this.watchdog);const r=this.active;this.active=null;if(r)try{r.abort();}catch{};}
  stop(){this.enabled=false;this.halt();this.onState('off');}
@@ -54,5 +58,5 @@ export class Voice {
   this.restart=setTimeout(()=>{if(token===this.generation){if(this.enabled)this.start();else this.onState('off');}},350);
  }
  cancel(){this.generation++;this.cancelSpeech?.();if(window.speechSynthesis)speechSynthesis.cancel();this.speaking=false;}
- dispose(){this.cancel();this.stop();}
+ dispose(){this.cancel();this.stop();this.local.cancelLoad();}
 }

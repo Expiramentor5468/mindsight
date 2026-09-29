@@ -1,6 +1,6 @@
 import {EXERCISES,COLORS,WEEKS,Session,parseIntent,stats,randomInt} from './core.js';
-import {Voice} from './voice.js?v=3.1.1';
-import {ReadinessCheck} from './readiness.js?v=3.1.1';
+import {Voice} from './voice.js?v=3.2.0';
+import {ReadinessCheck} from './readiness.js?v=3.2.0';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const percent=n=>n===null?'—':`${Math.round(n*100)}%`;
@@ -54,7 +54,7 @@ function renderJournal(){
 }
 function trialTable(r){return `<details><summary class="small">View each target and answer</summary><table class="trial-table"><thead><tr><th>Target</th><th>Shown</th><th>Answer</th><th>Result</th></tr></thead><tbody>${r.trials.map(t=>`<tr><td>${t.number}${t.flags.length?' ⚑':''}</td><td>${escape(t.target.answer)}</td><td>${escape(t.answer||'—')}</td><td>${t.status==='answered'?(t.answer===t.target.answer?'Correct':'Incorrect'):t.status}</td></tr>`).join('')}</tbody></table></details>`;}
 function openSetup(opts){
- readiness.reset();audioFault=false;setup=opts;
+ readiness.reset();voice.engine='auto';$('#speechEngine').value='auto';audioFault=false;setup=opts;
  $('#setupTitle').textContent=opts.existing?'Pick up where you left off.':opts.guided?'A little preparation.':EXERCISES[opts.exercise].name;
  $('#setupDescription').textContent=`${opts.mode==='measurement'?'Quiet measurement: feedback waits until the block ends.':'Explore, commit, hear feedback, and stay with each target.'} You control when to move on.`;
  $('#inputMode').value='voice';$('#trialCount').value=String(opts.existing?.planned||8);$('#trialCount').disabled=!!opts.existing;
@@ -67,6 +67,7 @@ function updateSetup(){
  const v=$('#inputMode').value==='voice';$('#voiceCheck').hidden=!v;
  $('#beginButton').disabled=!$('#comfortCheck').checked||(v&&!checkPassed);
  $('#voiceCompatibility').hidden=!v||voice.available;
+ $('#engineInfo').textContent=voice.usesLocal?'On-device English speech: an initial download of about 40 MB. Recognition audio stays on this device. First load the voice, then run the spoken check.':'Browser speech service: your browser may send recognition audio to its provider. Choose On-device to process recognition locally.';
  if(!storageOK)$('#setupError').textContent='Device storage is unavailable. You can practice, but export before leaving to retain your session.';
 }
 function checkVoice(){audioFault=false;void readiness.start();}
@@ -239,6 +240,7 @@ document.addEventListener('click',e=>{
 });
 $('#practiceMode').onclick=()=>setMode('practice');$('#measureMode').onclick=()=>setMode('measurement');
 function setMode(value){mode=value;$('#practiceMode').classList.toggle('selected',mode==='practice');$('#measureMode').classList.toggle('selected',mode==='measurement');$('#practiceMode').setAttribute('aria-pressed',String(mode==='practice'));$('#measureMode').setAttribute('aria-pressed',String(mode==='measurement'));$('#modeDescription').textContent=mode==='practice'?'Time to describe impressions, hear feedback, and stay with each target.':'One confirmed response per target. Feedback waits until the end. All passes and interruptions stay in your record.';}
+$('#speechEngine').onchange=()=>{readiness.reset();voice.engine=$('#speechEngine').value;updateSetup();};
 $('#checkVoice').onclick=checkVoice;$('#comfortCheck').onchange=updateSetup;
 $('#inputMode').onchange=()=>{readiness.reset();updateSetup();};
 $('#beginButton').onclick=begin;

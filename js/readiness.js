@@ -13,8 +13,17 @@ export class ReadinessCheck {
  async start(){
   if(this.running){this.reset('Check cancelled. Select Check audio & microphone to try again.');return;}
   this.reset();
-  if(!this.voice.available){this.fail('Voice recognition is unavailable in this browser. Try opening this page in Chrome, or choose Touch / keyboard above. The microphone has not been checked.');return;}
+  if(!this.voice.available){this.fail('Voice recognition is unavailable in this browser. Microphone access, WebAssembly and Web Audio must be available on HTTPS. You can also choose Touch / keyboard above. The microphone has not been checked.');return;}
   const id=this.runId;
+  if(this.voice.needsPreparation){
+   this.running=true;this.publish('Downloading and preparing on-device English voice (~40 MB). This can take a few minutes. Cancel is available.');
+   try{
+    await this.voice.prepare();
+    if(id!==this.runId)return;
+    this.running=false;this.publish('On-device voice is loaded. Click Check audio & microphone to test your speaker and microphone.');
+   }catch(error){if(id===this.runId)this.fail(error.message||'On-device voice could not load. Check your connection and retry.');}
+   return;
+  }
   this.expected=this.challenge();this.running=true;
   this.publish('Playing the audio check… Listen for a phrase, then repeat it. You can cancel at any time.');
   this.timer=setTimeout(()=>{if(id===this.runId)this.fail('The check timed out. Check site audio and microphone permissions, then try again.');},this.timeout);

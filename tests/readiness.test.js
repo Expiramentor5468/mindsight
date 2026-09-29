@@ -37,3 +37,12 @@ test('a cancelled previous attempt cannot interfere with a new attempt',async()=
  f.check.reset();const current=f.check.start();resolves[0]();await old;assert.equal(f.listens,0);assert.equal(f.check.running,true);
  resolves[1]();await current;assert.equal(f.listens,1);f.check.reset();
 });
+test('model preparation is a separate click and cannot count as a successful voice check',async()=>{
+ let prepared=false;const f=create({needsPreparation:true,prepare:async()=>{prepared=true;}});
+ await f.check.start();assert.equal(prepared,true);assert.equal(f.check.running,false);assert.equal(f.states.at(-1).passed,false);assert.equal(f.listens,0);
+ f.voice.needsPreparation=false;await f.check.start();f.check.hear('ready two');assert.equal(f.states.at(-1).passed,true);
+});
+test('cancelling a model download cannot update a newer readiness attempt',async()=>{
+ let finish;const f=create({needsPreparation:true,prepare:()=>new Promise(r=>finish=r)});const loading=f.check.start();
+ await f.check.start();finish();await loading;assert.match(f.states.at(-1).message,/cancelled/);assert.equal(f.listens,0);
+});
