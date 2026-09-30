@@ -2,7 +2,7 @@ import {previewHistory} from './history.js?v=3.4.0';
 import {shapeSVG} from './targets.js?v=3.4.0';
 import {EXERCISES,COLORS,WEEKS,GROUPS,SHAPES,exerciseFor,makeTarget,Session,parseIntent,stats,randomInt} from './core.js?v=3.4.0';
 import {SessionRecorder,audioSegments,saveBlob} from './recording.js';
-import {replayDocument} from './replay.js?v=3.4.0';
+import {replayDocument} from './replay.js?v=3.4.1';
 import {reflectionInput} from './reflection.js';
 import {Voice} from './voice.js?v=3.4.0';
 import {ReadinessCheck} from './readiness.js?v=3.4.0';
