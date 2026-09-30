@@ -1,9 +1,11 @@
-import {EXERCISES,COLORS,WEEKS,Session,parseIntent,stats,randomInt} from './core.js?v=3.3.0';
+import {previewHistory} from './history.js?v=3.4.0';
+import {shapeSVG} from './targets.js?v=3.4.0';
+import {EXERCISES,COLORS,WEEKS,GROUPS,SHAPES,exerciseFor,makeTarget,Session,parseIntent,stats,randomInt} from './core.js?v=3.4.0';
 import {SessionRecorder,audioSegments,saveBlob} from './recording.js';
-import {replayDocument} from './replay.js';
+import {replayDocument} from './replay.js?v=3.4.0';
 import {reflectionInput} from './reflection.js';
-import {Voice} from './voice.js?v=3.3.0';
-import {ReadinessCheck} from './readiness.js?v=3.3.0';
+import {Voice} from './voice.js?v=3.4.0';
+import {ReadinessCheck} from './readiness.js?v=3.4.0';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const percent=n=>n===null?'—':`${Math.round(n*100)}%`;
@@ -17,7 +19,7 @@ const voice=new Voice({onText:receive,onState:setVoiceState,onFault:voiceFault})
 const readiness=new ReadinessCheck({voice,challenge:()=>['one','two','three','four'][randomInt(4)],rate:()=>preferences.rate,onUpdate:state=>{
  checking=state.running;checkPassed=state.passed;
  $('#checkVoice').disabled=false;
- $('#checkVoice').textContent=state.running?'Cancel check':state.passed?'Check again':'Check audio & microphone';
+ $('#checkVoice').textContent=state.running?(voice.needsPreparation?'Cancel download':'Cancel check'):state.passed?'Check again':voice.needsPreparation?'Set up on-device voice…':'Check audio & microphone';
  $('#checkStatus').textContent=state.message;
  $('#voiceCheck').setAttribute('aria-busy',String(state.running));
  updateSetup();
@@ -46,7 +48,7 @@ function renderOverview(){
  const complete=records.filter(r=>r.status==='complete');
  $('#homeHistory').textContent=complete.length?`${complete.length} session${complete.length===1?'':'s'} recorded. Return to your observations, or make room for something new.`:'Your first session is a fresh page. Every observation has a place here.';
  const active=records.find(r=>r.status==='active');$('#resumeBanner').hidden=!active;
- if(active)$('#resumeBanner').innerHTML=`<div><strong>A session is waiting for you.</strong><br><span class="small">${EXERCISES[active.exercise].name} · ${active.trials.length} of ${active.planned} targets recorded</span></div><button class="button secondary" data-resume="${escape(active.id)}">Continue session →</button>`;
+ if(active)$('#resumeBanner').innerHTML=`<div><strong>A session is waiting for you.</strong><br><span class="small">${exerciseFor(active).name} · ${active.trials.length} of ${active.planned} targets recorded</span></div><button class="button secondary" data-resume="${escape(active.id)}">Continue session →</button>`;
 }
 function renderProgram(){
  $('#weekList').innerHTML=WEEKS.map((w,wi)=>`<article class="week-card"><div><span class="eyebrow">WEEK ${String(wi+1).padStart(2,'0')}</span><h2>${w.title}</h2><p>${w.subtitle}</p></div><div>${w.lessons.map((l,li)=>{const id=`${wi}-${li}`,completed=records.some(r=>r.lesson===id&&r.status==='complete'&&r.trials.filter(t=>t.status!=='interrupted').length>=r.planned);return `<div class="lesson"><span class="lesson-num">${completed?'✓':String(li+1).padStart(2,'0')}</span><span>${l}</span><button data-lesson="${id}">${completed?'Repeat':'Begin'} ↗</button></div>`;}).join('')}</div></article>`).join('');
@@ -54,34 +56,37 @@ function renderProgram(){
 function summaryMarkup(data){const s=stats(data);return `<div class="stats-row"><div class="stat"><strong>${s.correct}/${s.answered}</strong><span>Correct / answered</span></div><div class="stat"><strong>${percent(s.accuracy)}</strong><span>Answer accuracy</span></div><div class="stat"><strong>${s.passed}</strong><span>Passed</span></div><div class="stat"><strong>${s.interrupted}</strong><span>Interrupted</span></div></div><p class="small">Chance baseline: ${percent(s.chance)} · Recorded: ${data.trials.length}/${data.planned} · Flagged: ${s.flagged}${s.interval?` · 95% accuracy interval: ${percent(s.interval[0])}–${percent(s.interval[1])}`:''}. Small blocks vary widely by chance. These results do not establish perception without ordinary sight.</p>`;}
 function renderJournal(){
  if(!records.length){$('#journalList').innerHTML='<div class="empty-state"><span class="eyebrow">A FRESH PAGE</span><h2>Your observations belong here.</h2><p>Begin a session and your notes and results will be saved automatically.</p><button class="button primary" data-start="color2" data-guided="true">Begin your first session ↗</button></div>';return;}
- $('#journalList').innerHTML=records.map(r=>`<details class="journal-entry"><summary><div><span class="eyebrow">${new Date(r.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})} · ${r.mode==='measurement'?'MEASUREMENT':r.guided?'GUIDED PRACTICE':'PRACTICE'}</span><h2>${EXERCISES[r.exercise].name}</h2><p>${escape(r.condition)} · ${r.trials.length}/${r.planned} recorded · ${r.status==='active'?'In progress':'Finished'}</p></div><span aria-hidden="true">＋</span></summary><div class="entry-body">${r.status==='complete'?summaryMarkup(r):'<p>Feedback stays sealed until you finish the session.</p>'}${r.conditionNotes?`<p>Conditions: ${escape(r.conditionNotes)}</p>`:''}${r.notes.length?`<h3>Observations & reflections</h3><div class="notes-list">${r.notes.map(n=>`<p><span class="eyebrow">${n.afterFeedback?'AFTER FEEDBACK':n.phase==='reflection'?'REFLECTION':'OBSERVATION'}${n.trial?' · TARGET '+n.trial:''}</span><br>${escape(n.text)}</p>`).join('')}</div>`:'<p>No notes for this session.</p>'}<div class="session-actions">${r.status==='active'?`<button class="button primary" data-resume="${escape(r.id)}">Continue session →</button>`:''}<button class="button secondary" data-export="${escape(r.id)}">Export session ↓</button><button class="button secondary" data-start="${r.exercise}" data-mode="${r.mode}">Practice again ↗</button></div>${r.status==='complete'?trialTable(r):''}</div></details>`).join('');
+ $('#journalList').innerHTML=records.map(r=>`<details class="journal-entry"><summary><div><span class="eyebrow">${new Date(r.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})} · ${r.mode==='measurement'?'MEASUREMENT':r.guided?'GUIDED PRACTICE':'PRACTICE'}</span><h2>${exerciseFor(r).name}</h2><p>${escape(r.condition)}${r.config?' · Custom: '+escape(exerciseFor(r).answers.join(', ')):''} · ${r.trials.length}/${r.planned} recorded · ${r.status==='active'?'In progress':'Finished'}</p></div><span aria-hidden="true">＋</span></summary><div class="entry-body">${r.status==='complete'?summaryMarkup(r):'<p>Feedback stays sealed until you finish the session.</p>'}${r.conditionNotes?`<p>Conditions: ${escape(r.conditionNotes)}</p>`:''}${r.notes.length?`<h3>Observations & reflections</h3><div class="notes-list">${r.notes.map(n=>`<p><span class="eyebrow">${n.afterFeedback?'AFTER FEEDBACK':n.phase==='reflection'?'REFLECTION':'OBSERVATION'}${n.trial?' · TARGET '+n.trial:''}</span><br>${escape(n.text)}</p>`).join('')}</div>`:'<p>No notes for this session.</p>'}<div class="session-actions">${r.status==='active'?`<button class="button primary" data-resume="${escape(r.id)}">Continue session →</button>`:''}<button class="button secondary" data-export="${escape(r.id)}">Export session ↓</button><button class="button secondary" data-repeat="${escape(r.id)}">Practice again ↗</button></div>${r.status==='complete'?trialTable(r):''}</div></details>`).join('');
 }
 function trialTable(r){return `<details><summary class="small">View each target and answer</summary><table class="trial-table"><thead><tr><th>Target</th><th>Shown</th><th>Answer</th><th>Result</th></tr></thead><tbody>${r.trials.map(t=>`<tr><td>${t.number}${t.flags.length?' ⚑':''}</td><td>${escape(t.target.answer)}</td><td>${escape(t.answer||'—')}</td><td>${t.status==='answered'?(t.answer===t.target.answer?'Correct':'Incorrect'):t.status}</td></tr>`).join('')}</tbody></table></details>`;}
 function openSetup(opts){
  readiness.reset();voice.engine='auto';$('#speechEngine').value='auto';audioFault=false;setup=opts;
  $('#setupTitle').textContent=opts.existing?'Pick up where you left off.':opts.guided?'A little preparation.':EXERCISES[opts.exercise].name;
- $('#setupDescription').textContent=`${opts.mode==='measurement'?'Quiet measurement: feedback waits until the block ends.':'Explore, commit, hear feedback, and stay with each target.'} You control when to move on.`;
+ $('#setupDescription').textContent=`${opts.config?'Custom targets: '+exerciseFor(opts).answers.join(', ')+'. ':''}${opts.mode==='measurement'?'Quiet measurement: feedback waits until the block ends.':'Explore, commit, hear feedback, and stay with each target.'} You control when to move on.`;
  $('#inputMode').value='voice';$('#trialCount').value=String(opts.existing?.planned||8);$('#trialCount').disabled=!!opts.existing;
  $('#condition').value=opts.existing?.condition||'Mask, eyes closed';$('#condition').disabled=!!opts.existing;
  $('#conditionNotes').value=opts.existing?.conditionNotes||'';$('#conditionNotes').disabled=!!opts.existing;
  $('#comfortCheck').checked=false;$('#checkStatus').textContent='Not checked yet.';$('#checkVoice').disabled=false;$('#checkVoice').textContent='Check audio & microphone';$('#setupError').textContent='';
- $('#setupDialog').showModal();updateSetup();
+ $('#setupDialog').showModal();updateSetup();$('#checkVoice').textContent=voice.needsPreparation?'Set up on-device voice…':'Check audio & microphone';
 }
 function updateSetup(){
  const v=$('#inputMode').value==='voice';$('#voiceCheck').hidden=!v;
  $('#beginButton').disabled=!$('#comfortCheck').checked||(v&&!checkPassed);
  $('#voiceCompatibility').hidden=!v||voice.available;
- $('#engineInfo').textContent=voice.usesLocal?'On-device English speech: an initial download of about 40 MB. Recognition audio stays on this device. First load the voice, then run the spoken check.':'Browser speech service: your browser may send recognition audio to its provider. Choose On-device to process recognition locally.';
+ $('#engineInfo').textContent=voice.usesLocal?'On-device English recognition works in compatible Zen, Firefox, Chrome and Edge browsers. About 46 MB will be downloaded after you confirm. You can cancel before or during loading. Recognition audio stays on this device.':'Browser speech service: your browser may send recognition audio to its provider. Choose On-device to process recognition locally.';
+ if(!checking)$('#checkVoice').textContent=checkPassed?'Check again':voice.needsPreparation?'Set up on-device voice…':'Check audio & microphone';
  if(!storageOK)$('#setupError').textContent='Device storage is unavailable. You can practice, but export before leaving to retain your session.';
 }
-function checkVoice(){audioFault=false;void readiness.start();}
+function checkVoice(){audioFault=false;if(!readiness.running&&voice.needsPreparation&&voice.available){$('#downloadDialog').showModal();return;}void readiness.start();}
+$('#confirmDownload').onclick=()=>{$('#downloadDialog').close();void readiness.start();};
+$('#cancelDownload').onclick=()=>{$('#downloadDialog').close();$('#checkStatus').textContent='Download cancelled. No model download started.';$('#checkVoice').focus();};
 function receive(text){
  if(checking){readiness.hear(text);return;}
  if(!session||$('#sessionView').hidden)return;
  $('#lastHeard').textContent=`Heard: “${text}”`;
  session.event('utterance',{text});
  if(session.data.phase==='reflection'){const d=session.data;const result=reflectionInput({draft:d.reflectionDraft||'',listening:!!d.reflectionListening},text);if(result.action!=='idle'){d.reflectionDraft=result.draft;d.reflectionListening=result.listening;if(result.action==='save')saveReflection();else {save();renderSession();if(result.action==='start')say('Reflection started. Speak freely. Say save reflection when you are finished, or cancel reflection to discard the draft.');if(result.action==='cancel')say('Reflection draft discarded.');}return;}}
- handle(parseIntent(text,session.data.exercise,session.data.phase));
+ handle(parseIntent(text,session.data.exercise,session.data.phase,session.data.config));
 }
 function setVoiceState(state){
  if(state==='listening')readiness.started();
@@ -109,18 +114,19 @@ async function begin(){
  session=candidate;session.data.reflectionListening=false;
  if(setup.existing){session.event('recovered');if(session.data.phase!=='paused')session.pause('Recovered after leaving the page');}
  session.data.inputMode=voiceMode?'voice':'touch';save();$('#setupDialog').close();$('#shell').hidden=true;$('#sessionView').hidden=false;$('#lastHeard').textContent='';$('#reconnectButton').hidden=true;
- window.scrollTo(0,0);requestWake();renderSession();
+ window.scrollTo(0,0);requestWake();renderSession();$('#sessionActions button')?.focus();
  if(voiceMode)voice.enabled=true;
  say(setup.existing?'Your session is saved. Say resume when you are ready.':introText());
 }
-function introText(){const ex=EXERCISES[session.data.exercise];return `${ex.name}. ${ex.description} Your choices are ${ex.answers.join(', ')}. Put on your blindfold when comfortable. The target will stay on screen. Say I am ready to begin. Say help at any time after I finish speaking.`;}
+function introText(){const ex=exerciseFor(session.data);return `${ex.name}. ${ex.description} Your choices are ${ex.answers.join(', ')}. ${session.data.condition==='Unmasked, closed eyes'?'Close your eyes when comfortable.':session.data.condition.includes('Unmasked')?'Keep your eyes open for this demonstration.':'Put on your blindfold when comfortable.'} The target will stay on screen. Say I am ready to begin. Say help at any time after I finish speaking.`;}
 function say(text){if(session){session.event('prompt',{text});save();}lastPrompt=text;$('#sessionPrompt').textContent=text;return voice.speak(text,{enabled:voiceMode||preferences.spoken,rate:preferences.rate});}
 function shortSay(text){if(!session.data.quiet)return say(text);}
 function clearSessionTimer(){clearTimeout(sessionTimer);sessionTimer=null;}
 function enterSettle(){session.phase('settle');save();renderSession();say('Let your shoulders and jaw soften. Breathe normally. Notice the support beneath you. There is nothing to force. Take a quiet moment, or say ready when you want to continue.');sessionTimer=setTimeout(()=>{if(session?.data.phase==='settle')shortSay('Take the time you need. Say ready to continue.');},120000);}
 function enterBaseline(){clearSessionTimer();session.phase('baseline');save();renderSession();say('The screen is blank. Notice any background colors, patterns, or sensations already present. You do not need to see anything. Describe what you notice, or say next.');}
-function familiarTarget(){const ex=EXERCISES[session.data.exercise],idx=session.data.familiarIndex%ex.answers.length;
+function familiarTarget(){const ex=exerciseFor(session.data),idx=session.data.familiarIndex%ex.answers.length;
  if(ex.kind==='compare'){const keys=Object.keys(COLORS),c=keys[idx%4];return {answer:'same',first:c,second:c};}
+ if(ex.kind==='shape'){const wanted=ex.answers[idx];const target=makeTarget(session.data.exercise,()=>0,session.data.config);target.answer=wanted;if(ex.settings.ask==='both')[target.color,target.shape]=wanted.split(' ');else if(ex.settings.ask==='shape')target.shape=wanted;else target.color=wanted;return target;}
  return {answer:ex.answers[idx]};
 }
 function enterFamiliar(){clearSessionTimer();session.phase('familiar');save();renderSession();const t=familiarTarget();say(`This is a known example: ${session.data.exercise==='compare'?t.first:t.answer}. Explore it without scoring. Say next for another example, or start practice for an unknown target.`);}
@@ -140,7 +146,7 @@ function next(){const p=session.data.phase;
  else if(p==='explore')say('This target is still open. Make an answer, or say pass to move on.');
 }
 function finish(){clearSessionTimer();session.finish();save();renderSession();releaseWake();onFinished();}
-function onFinished(){const s=stats(session.data);say(`Session complete. You can remove your blindfold, or stay for a reflection. You answered ${s.answered} targets, with ${s.correct} correct, and passed ${s.passed}. Say start reflection, then speak freely. Say save reflection when finished. You can also say repeat session, start measurement, or finish session.`);}
+function onFinished(){const s=stats(session.data);say(`Session complete. ${session.data.condition==='Unmasked, closed eyes'?'You can open your eyes.':session.data.condition.includes('Unmasked')?'Take a moment to settle.':'You can remove your blindfold.'} Stay for a reflection if you like. You answered ${s.answered} targets, with ${s.correct} correct, and passed ${s.passed}. Say start reflection, then speak freely. Say save reflection when finished. You can also say repeat session, start measurement, or finish session.`);}
 function handle(intent){
  if(!session)return;
  const d=session.data,p=d.phase;
@@ -169,7 +175,7 @@ function handle(intent){
  if(intent.type==='answer'){
   if(!['explore','confirm'].includes(p)){say('Answers are only recorded for an unknown target. Say next to continue.');return;}
   if(d.exercise==='compare'&&d.current.part===1){say('Explore the second color first. Say second.');return;}
-  if(!intent.answer){say(`Please choose one answer: ${EXERCISES[d.exercise].answers.join(', ')}. Begin with my answer is.`);return;}
+  if(!intent.answer){say(`Please choose one answer: ${exerciseFor(d).answers.join(', ')}. Begin with my answer is.`);return;}
   session.propose(intent.answer);save();renderSession();say(`I heard ${intent.answer}. Is that your answer? Say yes, or no to change it.`);return;
  }
  if(intent.type==='no'&&p==='confirm'){d.pending=null;session.phase('explore');save();renderSession();say('Answer not recorded. Take your time, then say my answer is followed by your choice.');return;}
@@ -185,13 +191,13 @@ function handle(intent){
  shortSay('Say help to hear the available commands.');
 }
 function resumeText(){const p=session.data.phase;if(p==='confirm')return `Your answer ${session.data.pending} is waiting. Say yes to confirm, or no to change it.`;if(p==='explore')return 'Resumed. Your target is still on screen. Take your time.';if(p==='familiar')return `Resumed. The known example is ${familiarTarget().answer}. Say next or start practice.`;if(p==='feedback')return 'Resumed. Your response is recorded. Say next when ready.';return 'Resumed. Say ready or next when you want to continue.';}
-function helpText(){const ex=EXERCISES[session.data.exercise];return `${ex.description} Your choices are ${ex.answers.join(', ')}. ${session.data.phase==='familiar'?'This is familiarization. Say start practice for unknown targets.':'Describe impressions freely. To answer, say my answer is, followed by your choice. I will ask you to confirm.'} Say pass, more time, pause, less talking, or end session. ${session.data.exercise==='compare'?'Say second to move from the first color to the second.':''}`;}
+function helpText(){const ex=exerciseFor(session.data);return `${ex.description} Your choices are ${ex.answers.join(', ')}. ${session.data.phase==='familiar'?'This is familiarization. Say start practice for unknown targets.':'Describe impressions freely. To answer, say my answer is, followed by your choice. I will ask you to confirm.'} Say pass, more time, pause, less talking, or end session. ${session.data.exercise==='compare'?'Say second to move from the first color to the second.':''}`;}
 async function repeatSession(newMode){
  const keepRecording=!!recorder.active;await recorder.stop();session.event('block-left');
- const old=session.data;old.reflectionListening=false;save();session=new Session({exercise:old.exercise,mode:newMode,planned:old.planned,condition:old.condition,conditionNotes:old.conditionNotes});session.data.inputMode=voiceMode?'voice':'touch';if(keepRecording){try{await recorder.start(session.data.id);session.data.hasAudio=true;session.data.audioSegments=[{startedAt:recorder.active.startedAt,id:recorder.active.segment,mimeType:recorder.active.recorder.mimeType||'browser-selected'}];}catch(e){toast('New block audio could not start: '+e.message);}}save();requestWake();renderSession();say(`A new ${newMode==='measurement'?'measurement':'practice'} block. ${newMode==='measurement'?'Feedback will wait until the end. ':''}Your previous session is saved. Say ready to begin.`);
+ const old=session.data;old.reflectionListening=false;save();session=new Session({exercise:old.exercise,mode:newMode,planned:old.planned,condition:old.condition,conditionNotes:old.conditionNotes,config:old.config});session.data.inputMode=voiceMode?'voice':'touch';if(keepRecording){try{await recorder.start(session.data.id);session.data.hasAudio=true;session.data.audioSegments=[{startedAt:recorder.active.startedAt,id:recorder.active.segment,mimeType:recorder.active.recorder.mimeType||'browser-selected'}];}catch(e){toast('New block audio could not start: '+e.message);}}save();requestWake();renderSession();say(`A new ${newMode==='measurement'?'measurement':'practice'} block. ${newMode==='measurement'?'Feedback will wait until the end. ':''}Your previous session is saved. Say ready to begin.`);
 }
 function renderTarget(){
- const d=session.data,ex=EXERCISES[d.exercise],visiblePhase=d.phase==='paused'?d.beforePause:d.phase,active=['familiar','explore','confirm','feedback'].includes(visiblePhase);
+ const d=session.data,ex=exerciseFor(d),visiblePhase=d.phase==='paused'?d.beforePause:d.phase,active=['familiar','explore','confirm','feedback'].includes(visiblePhase);
  $('#sessionView').classList.toggle('target-active',!!active);const el=$('#target');el.innerHTML='';el.style.background=active?'#f6f5ef':'var(--bg)';
  if(!active)return;
  const t=visiblePhase==='familiar'?familiarTarget():d.current?.target;if(!t)return;
@@ -199,11 +205,12 @@ function renderTarget(){
  else if(ex.kind==='compare')el.style.background=COLORS[visiblePhase==='familiar'?t.first:(d.current.part===1?t.first:t.second)];
  else if(ex.kind==='symbol')el.innerHTML=`<div class="target-symbol">${t.answer.toUpperCase()}</div>`;
  else if(ex.kind==='location')el.innerHTML=`<div class="target-shape circle" style="left:${t.answer==='left'?'25':'75'}%;width:min(25vw,190px);height:min(25vw,190px)"></div>`;
- else el.innerHTML=`<div class="target-shape ${t.answer}"></div>`;
+ else el.innerHTML=`<div class="target-art">${shapeSVG(t)}</div>`;
 }
 function action(label,action,primary=false){return `<button class="button ${primary?'primary':'secondary'}" data-action="${action}">${label}</button>`;}
 function renderSession(){
- const d=session.data,ex=EXERCISES[d.exercise],p=d.phase;renderTarget();
+ const focused=document.activeElement,focusWasDynamic=!!focused?.closest('#sessionActions,#touchAnswers,#phaseExtra');const keepFocus=focused?.id;
+ const d=session.data,ex=exerciseFor(d),p=d.phase;renderTarget();
  const visible=p==='paused'?d.beforePause:p;const target=['familiar','explore','confirm','feedback'].includes(visible)?(visible==='familiar'?familiarTarget():d.current?.target):null;const frame={phase:p,kind:ex.kind,target:target?structuredClone(target):null,part:d.current?.part||1,number:d.current?.number||null};const signature=JSON.stringify(frame);if(d.lastScreen!==signature){d.lastScreen=signature;session.event('screen',frame);save();}
  $('#sessionMode').textContent=`${ex.name} · ${d.mode==='measurement'?'Measurement':'Practice'}`;
  const titles={intro:'Make yourself comfortable.',settle:'Nothing to force.',baseline:'Notice what is already here.',familiar:'Get to know the target.',explore:'What do you notice?',confirm:'Is that your answer?',feedback:'A moment to notice.',paused:'Take a pause.',reflection:'Make room for reflection.'};
@@ -229,6 +236,7 @@ function renderSession(){
  }
  $('#sessionActions').innerHTML=actions;$('#pauseButton').textContent=p==='paused'?'Resume':'Pause';$('#pauseButton').hidden=p==='reflection';
  $('#endButton').textContent=p==='reflection'?'Back to overview':'End session';
+ if(focusWasDynamic){const same=keepFocus?document.getElementById(keepFocus):null;const next=same||$('#touchAnswers button')||$('#sessionActions .primary')||$('#sessionActions button');next?.focus({preventScroll:true});}
 }
 async function requestWake(){try{if(navigator.wakeLock)wake=await navigator.wakeLock.request('screen');}catch{}}
 function releaseWake(){try{wake?.release();}catch{}wake=null;}
@@ -236,17 +244,18 @@ async function leave(){await recorder.stop();session?.event('session-left');if(s
 function download(data,name){const b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function saveReflection(){const d=session.data;const t=(d.reflectionDraft||'').trim();d.reflectionListening=false;if(t){session.note(t);d.reflectionDraft='';save();renderSession();say('Reflection saved.');}else {save();renderSession();toast('Your reflection draft is empty.');}}
  document.addEventListener('input',e=>{if(e.target.id==='reflectionText'&&session){session.data.reflectionDraft=e.target.value;save();}});
- async function exportSession(id){try{if(recorder.active?.id===id){session.event('recording-stopped');await recorder.stop();save();}const r=records.find(r=>r.id===id);$('#exportDescription').textContent=r.hasAudio?'Includes personal notes and microphone audio. Sharing is your choice.':'Includes targets, responses, prompts and personal notes.';$('#exportDialog').showModal();$('#exportJSON').onclick=()=>download(r,`mindsight-${id}.json`);$('#exportTranscript').onclick=()=>saveBlob(new Blob(['UNVERIFIED LIVE RECOGNITION — not a transcript generated from the recording.\n\n'+r.events.filter(e=>e.type==='utterance').map(e=>e.at+'  '+e.text).join('\n')],{type:'text/plain'}),`mindsight-${id}-recognition.txt`);$('#exportReplay').onclick=async()=>{try{const audio=r.hasAudio?await audioSegments(id):[];if(r.hasAudio&&!audio.length)toast('No saved audio was found. Exporting the screen replay only.');saveBlob(new Blob([await replayDocument(r,audio)],{type:'text/html'}),`mindsight-${id}-replay.html`);}catch(e){toast('Replay export failed: '+e.message);}};$('#exportAudio').hidden=!r.hasAudio;$('#exportAudio').onclick=async()=>{try{const segments=await audioSegments(id);if(!segments.length)toast('No saved audio found.');segments.forEach((s,i)=>saveBlob(s.blob,`mindsight-${id}-${i+1}.${s.blob.type.includes('ogg')?'ogg':s.blob.type.includes('mp4')?'m4a':'webm'}`));}catch(e){toast('Audio export failed: '+e.message);}};}catch(e){toast('Export failed: '+e.message);}}
+ async function exportSession(id){try{if(recorder.active?.id===id){session.event('recording-stopped');await recorder.stop();save();}const r=records.find(r=>r.id===id);$('#exportDescription').textContent=r.hasAudio?'Includes personal notes and microphone audio. Sharing is your choice.':'Includes targets, responses, prompts and personal notes.';$('#exportDialog').showModal();$('#exportJSON').onclick=()=>download(r,`mindsight-${id}.json`);$('#exportTranscript').onclick=()=>saveBlob(new Blob(['UNVERIFIED LIVE RECOGNITION — not a transcript generated from the recording.\n\n'+r.events.filter(e=>e.type==='utterance').map(e=>e.at+'  '+e.text).join('\n')],{type:'text/plain'}),`mindsight-${id}-recognition.txt`);$('#watchReplay').onclick=async()=>{try{const audio=r.hasAudio?await audioSegments(id):[];$('#replayFrame').srcdoc=await replayDocument(r,audio);$('#replayDialog').showModal();}catch(e){toast('Replay could not open: '+e.message);}};$('#exportReplay').onclick=async()=>{try{const audio=r.hasAudio?await audioSegments(id):[];if(r.hasAudio&&!audio.length)toast('No saved audio was found. Exporting the screen replay only.');saveBlob(new Blob([await replayDocument(r,audio)],{type:'text/html'}),`mindsight-${id}-replay.html`);}catch(e){toast('Replay export failed: '+e.message);}};$('#exportAudio').hidden=!r.hasAudio;$('#exportAudio').onclick=async()=>{try{const segments=await audioSegments(id);if(!segments.length)toast('No saved audio found.');segments.forEach((s,i)=>saveBlob(s.blob,`mindsight-${id}-${i+1}.${s.blob.type.includes('ogg')?'ogg':s.blob.type.includes('mp4')?'m4a':'webm'}`));}catch(e){toast('Audio export failed: '+e.message);}};}catch(e){toast('Export failed: '+e.message);}}
  $('#stopRecording').onclick=async()=>{if(session)session.event('recording-stopped');await recorder.stop();save();};
  const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
 function applyTheme(){document.documentElement.dataset.theme=preferences.theme==='dark'||(preferences.theme!=='light'&&systemTheme.matches)?'dark':'light';}
 systemTheme.addEventListener('change',applyTheme);
 function applyPrefs(){applyTheme();$('#themeMode').value=preferences.theme||'system';document.documentElement.classList.toggle('large-text',preferences.large);$('#speechRate').value=String(preferences.rate);$('#spokenPrompts').checked=preferences.spoken;$('#largeText').checked=preferences.large;}
-$('#featuredExercises').innerHTML=['color2','compare','shapes'].map(exerciseCard).join('');$('#allExercises').innerHTML=Object.keys(EXERCISES).map(exerciseCard).join('');
+$('#featuredExercises').innerHTML=['color2','compare','shapes'].map(exerciseCard).join('');$('#allExercises').innerHTML=GROUPS.map(g=>`<section class="exercise-group"><h2>${g.name}</h2><div class="exercise-grid all">${g.ids.map(exerciseCard).join('')}</div></section>`).join('');
 applyPrefs();renderProgram();route();
 window.addEventListener('hashchange',route);
 document.addEventListener('click',e=>{
  const start=e.target.closest('[data-start]');if(start){openSetup({exercise:start.dataset.start,mode:start.dataset.mode||mode,guided:start.dataset.guided==='true'});return;}
+ const repeat=e.target.closest('[data-repeat]');if(repeat){const r=records.find(r=>r.id===repeat.dataset.repeat);openSetup({exercise:r.exercise,mode:r.mode,config:r.config});return;}
  const lesson=e.target.closest('[data-lesson]');if(lesson){const [w,l]=lesson.dataset.lesson.split('-').map(Number);const row=WEEKS[w];openSetup({exercise:row.exercises?.[l]||row.exercise,mode:w===3&&l===2?'measurement':'practice',guided:true,lesson:lesson.dataset.lesson,skipFamiliar:w===2&&l%2===0});return;}
  const resume=e.target.closest('[data-resume]');if(resume){const r=records.find(r=>r.id===resume.dataset.resume);openSetup({exercise:r.exercise,mode:r.mode,guided:r.guided,existing:r});return;}
  const exp=e.target.closest('[data-export]');if(exp){void exportSession(exp.dataset.export);return;}
@@ -270,7 +279,17 @@ $('#reconnectButton').onclick=()=>{audioFault=false;voice.dispose();voice.enable
 $('#commandForm').onsubmit=e=>{e.preventDefault();const value=$('#commandInput').value.trim();if(!value)return;$('#commandInput').value='';receive(value);};
 $('#exportAll').onclick=()=>download({version:3,exportedAt:stamp(),sessions:records},'mindsight-journal.json');
 $('#exportLegacy').onclick=()=>{try{const raw=localStorage.getItem('ml2-sessions');if(!raw){$('#legacyStatus').textContent='No earlier records found in this browser.';return;}download({legacy:true,rawSessions:JSON.parse(raw)},'mindsight-lab-earlier-records.json');}catch{$('#legacyStatus').textContent='Earlier records could not be read.';}};
-document.addEventListener('keydown',e=>{if(!session||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement?.tagName))return;if(e.code==='Space'||e.key==='Escape'){e.preventDefault();voice.cancel();handle({type:session.data.phase==='paused'?'resume':'pause'});}});
+document.addEventListener('keydown',e=>{
+ if(!session||document.querySelector('dialog[open]')||e.altKey||e.ctrlKey||e.metaKey||e.repeat)return;
+ const focus=document.activeElement;if(focus?.matches('input,textarea,select,[contenteditable="true"]'))return;
+ const answers=$$('#touchAnswers button');if(answers.includes(focus)&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();answers[(answers.indexOf(focus)+(e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1)+answers.length)%answers.length].focus();return;}
+ const k=e.key.toLowerCase(),p=session.data.phase;
+ if(k==='/'){e.preventDefault();$('#commandInput').focus();return;}
+ if(k==='escape'){e.preventDefault();voice.cancel();if(p!=='reflection')handle({type:p==='paused'?'resume':'pause'});return;}
+ if(/^[1-9]$/.test(k)&&answers[Number(k)-1]){e.preventDefault();answers[Number(k)-1].click();return;}
+ const commands={h:'help',r:'repeat',p:'pass',y:'yes',c:'no',n:['intro','settle','baseline','familiar'].includes(p)?'ready':'next'};
+ if(commands[k]){e.preventDefault();handle({type:commands[k]});}
+});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&session?.data.status==='active'){clearSessionTimer();void recorder.stop();session.pause('Page moved to the background');voice.dispose();session.event('backgrounded');save();renderSession();$('#sessionPrompt').textContent='Paused while the page was in the background. Reconnect voice, then resume.';$('#reconnectButton').hidden=!voiceMode;audioFault=voiceMode;releaseWake();}else if(!document.hidden&&session)requestWake();});
 window.addEventListener('pagehide',()=>{void recorder.stop();if(session?.data.status==='active'){session.pause('Page closed or refreshed');save();}voice.dispose();releaseWake();});
 if(!storageOK)toast('Storage could not be read. Your existing data has not been overwritten.');
@@ -282,3 +301,22 @@ const savedReader=preferences.reader||{mode:'browser'};for(const [id,field] of [
 $('#discoverReader').onclick=async()=>{saveReader();$('#readerStatus').textContent='Connecting…';try{if($('#readerMode').value!=='mcp')throw Error('Select Local MCP first.');readerTools=await voice.reader.list();$('#readerTool').replaceChildren(new Option('Select a speech tool',''));for(const t of readerTools)$('#readerTool').add(new Option(t.name,t.name));$('#readerStatus').textContent='Choose a speech tool and match its input schema below. Discovery does not invoke tools.';}catch(e){$('#readerStatus').textContent=e.message+' Check the endpoint, CORS and local-network permissions.';}};
 $('#testReader').onclick=async()=>{saveReader();$('#readerStatus').textContent='Testing selected voice…';try{if(voice.reader.config.mode==='browser'){await voice.speak('Your MindSight voice reader is ready.',{rate:preferences.rate});}else await voice.reader.speak('Your MindSight voice reader is ready.');$('#readerStatus').textContent='Test finished. Confirm that you heard the phrase before starting a voice session.';}catch(e){$('#readerStatus').textContent='Could not play: '+e.message+' Check CORS and local-network permissions.';}};
 $('#settingsDialog').addEventListener('close',()=>voice.reader.cancel());
+
+function customConfig(){const family=$('#customFamily').value,answers=$$('#customChoices input:checked').map(e=>e.value);return family==='shapes'?{shapes:answers,colors:$$('#customColors input:checked').map(e=>e.value),style:$('#customStyle').value,ask:$('#customAsk').value}:{answers};}
+function updateCustom(){try{const ex=exerciseFor($('#customFamily').value,customConfig());$('#customSummary').textContent=ex.answers.length+' possible answers · '+percent(1/ex.answers.length)+' chance baseline. '+ex.answers.join(', ');$('#startCustom').disabled=false;}catch(e){$('#customSummary').textContent=e.message;$('#startCustom').disabled=true;}}
+function renderCustom(){const id=$('#customFamily').value;$('#customChoices').innerHTML='<fieldset><legend>Include these '+(id==='shapes'?'shapes':'choices')+'</legend><div class="choice-grid">'+EXERCISES[id].answers.map(a=>`<label class="checkbox"><input type="checkbox" value="${a}" checked> ${a}</label>`).join('')+'</div></fieldset>';$('#customShapeOptions').hidden=id!=='shapes';updateCustom();}
+$('#customColors').innerHTML=['black',...Object.keys(COLORS)].map(c=>`<label class="checkbox"><input type="checkbox" value="${c}" ${c==='black'?'checked':''}> ${c}</label>`).join('');
+$('#customFamily').onchange=renderCustom;for(const id of ['customChoices','customColors','customStyle','customAsk'])$('#'+id).addEventListener('change',updateCustom);
+$('#startCustom').onclick=()=>{try{const config=customConfig();exerciseFor($('#customFamily').value,config);openSetup({exercise:$('#customFamily').value,config,mode});}catch(e){toast(e.message);}};renderCustom();
+
+let pendingImport=null;
+const archiveKey='mindsight-imported-legacy';
+function legacySummary(rows){if(!rows.every(r=>r&&typeof r.title==='string'&&Array.isArray(r.records)))return '';return '<table class="trial-table"><thead><tr><th>Date</th><th>Exercise</th><th>Condition</th><th>Original score</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${escape(r.finishedAt||r.startedAt||'Unknown')}</td><td>${escape(r.title)}</td><td>${escape(r.condition||'')}</td><td>${r.records.filter(t=>t.correct===true).length}/${r.records.length}</td></tr>`).join('')+'</tbody></table>';}
+function renderImportedArchives(){const holder=$('#importedArchives');try{const archives=JSON.parse(localStorage.getItem(archiveKey)||'[]');holder.innerHTML=archives.map((a,i)=>`<details class="legacy"><summary>Imported earlier history · ${escape(a.name)} · ${a.rawSessions.length} records</summary><p>Preserved in its original format. Not mixed into current scoring or replay.</p>${legacySummary(a.rawSessions)}<button class="button secondary" data-archive="${i}">Export this archive</button><pre style="white-space:pre-wrap;max-height:350px;overflow:auto">${escape(JSON.stringify(a.rawSessions,null,2))}</pre></details>`).join('');}catch{holder.textContent='Imported archives could not be read. Existing storage was left unchanged.';}}
+$('#importHistory').onclick=()=>{pendingImport=null;$('#historyFile').value='';$('#confirmImport').disabled=true;$('#importStatus').textContent='Choose a file to preview the import.';$('#importDialog').showModal();};
+$('#historyFile').onchange=async()=>{pendingImport=null;$('#confirmImport').disabled=true;const file=$('#historyFile').files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('Choose a JSON file smaller than 10 MB.');const preview=previewHistory(JSON.parse(await file.text()),records);pendingImport={...preview,name:file.name};$('#importStatus').textContent=preview.kind==='legacy'?`${preview.count} earlier records will be preserved as a separate archive.`:`${preview.additions.length} sessions ready to import. ${preview.duplicates} duplicate IDs will be skipped. Existing history will not be overwritten. Audio is not included in JSON.`;$('#confirmImport').disabled=preview.kind==='sessions'&&!preview.additions.length;}catch(e){$('#importStatus').textContent='Import not started: '+e.message;}};
+$('#confirmImport').onclick=()=>{if(!pendingImport)return;try{if(storageBlocked)throw Error('Existing storage could not be read; import cannot overwrite it.');if(pendingImport.kind==='legacy'){const archives=JSON.parse(localStorage.getItem(archiveKey)||'[]');const text=JSON.stringify(pendingImport.rawSessions);if(archives.some(a=>JSON.stringify(a.rawSessions)===text))throw Error('This earlier archive is already imported.');archives.push({name:pendingImport.name,importedAt:stamp(),rawSessions:pendingImport.rawSessions});localStorage.setItem(archiveKey,JSON.stringify(archives));renderImportedArchives();}else {const preview=previewHistory({sessions:pendingImport.additions},records);const merged=[...preview.additions,...records].sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));localStorage.setItem(key,JSON.stringify(merged));records=merged;renderJournal();renderOverview();}$('#importStatus').textContent='Import complete. Your existing records were preserved.';$('#confirmImport').disabled=true;pendingImport=null;}catch(e){$('#importStatus').textContent='Import could not finish: '+e.message;}};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-archive]');if(b){try{const a=JSON.parse(localStorage.getItem(archiveKey)||'[]')[Number(b.dataset.archive)];download({legacy:true,rawSessions:a.rawSessions},'mindsight-imported-earlier-history.json');}catch{toast('Archive could not be exported.');}}});
+renderImportedArchives();
+
+$('#replayDialog').addEventListener('close',()=>{$('#replayFrame').srcdoc='';});

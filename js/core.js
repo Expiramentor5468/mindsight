@@ -1,4 +1,4 @@
-export const VERSION = '3.0';
+export const VERSION = '3.4';
 export const COLORS = {red:'#e14640',blue:'#3076dc',yellow:'#f4cb38',green:'#359b68'};
 export const EXERCISES = {
   color2:{name:'First colors',kind:'color',answers:['red','blue'],description:'Start with two distinct colors. Notice an impression, then make your choice.',icon:'colors',category:'FOUNDATION'},
@@ -10,6 +10,28 @@ export const EXERCISES = {
   numbers:{name:'Numbers',kind:'symbol',answers:['1','2','3','4'],description:'Work with four large, clearly defined numbers, one at a time.',icon:'numbers',category:'SYMBOLS'},
   letters:{name:'Letters',kind:'symbol',answers:['a','b','c','d'],description:'Explore the outlines of A, B, C, and D without changing their location.',icon:'letters',category:'SYMBOLS'}
 };
+Object.assign(EXERCISES,{
+ coloredShapes:{name:'Colored solid shapes',kind:'shape',answers:['red circle','red triangle','red square','red star','blue circle','blue triangle','blue square','blue star'],description:'Identify both the color and the solid shape.',category:'COLOR + FORM',defaults:{colors:['red','blue'],shapes:['circle','triangle','square','star'],style:'solid',ask:'both'}},
+ outlines:{name:'Black outlines',kind:'shape',answers:['circle','triangle','square','star'],description:'Explore open shapes with a black outline and an unfilled center.',category:'OUTLINES',defaults:{colors:['black'],shapes:['circle','triangle','square','star'],style:'outline',ask:'shape'}},
+ coloredOutlines:{name:'Colored outlines',kind:'shape',answers:['red circle','red triangle','red square','red star','blue circle','blue triangle','blue square','blue star'],description:'Identify both the color and the outline shape.',category:'COLOR + OUTLINES',defaults:{colors:['red','blue'],shapes:['circle','triangle','square','star'],style:'outline',ask:'both'}}
+});
+export const GROUPS=[{name:'1 · Colors & comparison',ids:['color2','color4','compare']},{name:'2 · Solid shapes',ids:['shapes','coloredShapes']},{name:'3 · Open shapes & outlines',ids:['outlines','coloredOutlines']},{name:'4 · Position, direction & symbols',ids:['location','orientation','numbers','letters']}];
+export const SHAPES=['circle','triangle','square','star'];
+export function exerciseFor(source,config){
+ const id=typeof source==='string'?source:source.exercise,c=config??(typeof source==='object'?source.config:null),base=EXERCISES[id];
+ if(!base)throw Error('Unknown exercise.');
+ const settings={...(base.defaults||{}),...(c||{})};
+ if(base.kind==='shape'){
+  const shapes=settings.shapes||SHAPES,colors=settings.colors||['black'],style=settings.style||'solid',ask=settings.ask||'shape';
+  if(!shapes.length||shapes.some(x=>!SHAPES.includes(x))||new Set(shapes).size!==shapes.length||!colors.length||colors.some(x=>!['black',...Object.keys(COLORS)].includes(x))||new Set(colors).size!==colors.length||!['solid','outline'].includes(style)||!['shape','color','both'].includes(ask))throw Error('Choose valid shapes, colors and answer type.');
+  const answers=ask==='shape'?shapes:ask==='color'?colors:colors.flatMap(c=>shapes.map(s=>c+' '+s));
+  if(answers.length<2)throw Error('Choose at least two possible answers.');
+  return {...base,answers,settings:{shapes,colors,style,ask}};
+ }
+ const answers=settings.answers||base.answers;
+ if(answers.length<2||answers.some(a=>!base.answers.includes(a))||new Set(answers).size!==answers.length)throw Error('Choose at least two valid answers.');
+ return {...base,answers,settings:{answers}};
+}
 export const WEEKS = [
  {title:'Find your rhythm',subtitle:'Setup, quiet attention, and first colors.',exercise:'color2',lessons:['Meet your practice companion','Explore known colors','Make room for impressions','Repeat & reflect']},
  {title:'Explore the differences',subtitle:'Add color, comparison, and simple forms.',exercise:'color4',lessons:['Meet four colors','Compare two impressions','Notice curves & edges','Return to your favorite'],exercises:['color4','compare','shapes','color4']},
@@ -22,8 +44,9 @@ export function randomInt(n) {
  do { crypto.getRandomValues(a); } while(a[0]>=limit);
  return a[0]%n;
 }
-export function makeTarget(id, rand=randomInt) {
- const ex=EXERCISES[id], answer=ex.answers[rand(ex.answers.length)];
+export function makeTarget(id, rand=randomInt, config) {
+ const ex=exerciseFor(id,config), answer=ex.answers[rand(ex.answers.length)];
+ if(ex.kind==='shape'){const c=ex.settings;let shape,color;if(c.ask==='both')[color,shape]=answer.split(' ');else {shape=c.ask==='shape'?answer:c.shapes[rand(c.shapes.length)];color=c.ask==='color'?answer:c.colors[rand(c.colors.length)];}return {answer,shape,color,style:c.style};}
  if(id==='compare'){
   const keys=Object.keys(COLORS), first=keys[rand(4)];
   const others=keys.filter(k=>k!==first);
@@ -31,18 +54,18 @@ export function makeTarget(id, rand=randomInt) {
  }
  return {answer};
 }
-export function parseAnswer(text,id) {
+export function parseAnswer(text,id,config) {
  let t=normalize(text).replace(/^(no )?(i said |my answer is |my answer |i choose |i pick |i think it is |i think its |its |it is )/,'').replace(/^(the )/,'');
  const aliases={blu:'blue',read:'red',blew:'blue',to:'2',two:'2',one:'1',three:'3',four:'4',for:'4',won:'1',ay:'a',bee:'b',be:'b',see:'c',sea:'c',dee:'d','up and down':'vertical',upright:'vertical',across:'horizontal','the same':'same','not the same':'different'};
  t=aliases[t]||t;
- return EXERCISES[id].answers.includes(t)?t:null;
+ return exerciseFor(id,config).answers.includes(t)?t:null;
 }
-export function parseIntent(text,id,phase) {
+export function parseIntent(text,id,phase,config) {
  const t=normalize(text);
  const commands={pause:['pause','pause session','stop','wait'],resume:['resume','continue','continue session'],end:['end session','and session','end the session','and the session','end this session','finish session','finish the session','finish','quit session','stop session'],next:['next','next target','next one','move on'],second:['second','show second','next color','target two'],pass:['pass','skip','skip this'],help:['help','help me','explain that','what am i doing','what are my options'],repeat:['repeat','repeat that','say that again'],quiet:['less talking','quiet mode'],more:['more talking','full guidance'],stay:['more time','stay','stay with this','nothing yet','i dont see anything'],ready:['im ready','i am ready','begin','start practice','ready'],yes:['yes','correct','confirm','thats right'],no:['no','cancel answer','you misheard me'],reflect:['reflection','reflect'],again:['repeat session','repeat exercise','another session'],measure:['start measurement','measurement'],listening:['are you listening','listening status'],leak:['i can see around the mask','light leak','mask problem']};
  for(const [type,values] of Object.entries(commands)) if(values.includes(t)) return {type,text};
  if(/^(my answer(?: is)?|i choose|i pick)\b/.test(t) || (phase==='confirm' && /^(no )?i said\b/.test(t))) {
-  return {type:'answer',answer:parseAnswer(t,id),text};
+  return {type:'answer',answer:parseAnswer(t,id,config),text};
  }
  return {type:'note',text};
 }
@@ -53,21 +76,22 @@ export function stats(session) {
  const n=committed.length,p=n?correct/n:0,z=1.96,den=1+z*z/(n||1);
  const center=(p+z*z/(2*(n||1)))/den;
  const half=z*Math.sqrt(p*(1-p)/(n||1)+z*z/(4*(n||1)**2))/den;
- return {correct,answered:n,passed:trials.filter(t=>t.status==='passed').length,interrupted:trials.filter(t=>t.status==='interrupted').length,flagged:trials.filter(t=>t.flags?.length).length,accuracy:n?p:null,interval:n?[Math.max(0,center-half),Math.min(1,center+half)]:null,coverage:trials.length/session.planned,chance:1/EXERCISES[session.exercise].answers.length};
+ return {correct,answered:n,passed:trials.filter(t=>t.status==='passed').length,interrupted:trials.filter(t=>t.status==='interrupted').length,flagged:trials.filter(t=>t.flags?.length).length,accuracy:n?p:null,interval:n?[Math.max(0,center-half),Math.min(1,center+half)]:null,coverage:trials.length/session.planned,chance:1/exerciseFor(session).answers.length};
 }
 export class Session {
  constructor(options, existing=null) {
-  this.data=existing?structuredClone(existing):{id:crypto.randomUUID(),version:VERSION,exercise:options.exercise,mode:options.mode||'practice',guided:!!options.guided,skipFamiliar:!!options.skipFamiliar,lesson:options.lesson??null,planned:options.planned||8,condition:options.condition||'Mask, eyes closed',conditionNotes:options.conditionNotes||'',createdAt:new Date().toISOString(),status:'active',phase:'intro',trials:[],notes:[],events:[],current:null,pending:null,quiet:false,familiarIndex:0};
+  exerciseFor(existing||options);
+  this.data=existing?structuredClone(existing):{id:crypto.randomUUID(),version:VERSION,exercise:options.exercise,config:options.config?structuredClone(options.config):null,mode:options.mode||'practice',guided:!!options.guided,skipFamiliar:!!options.skipFamiliar,lesson:options.lesson??null,planned:options.planned||8,condition:options.condition||'Mask, eyes closed',conditionNotes:options.conditionNotes||'',createdAt:new Date().toISOString(),status:'active',phase:'intro',trials:[],notes:[],events:[],current:null,pending:null,quiet:false,familiarIndex:0};
  }
  event(type,detail={}){this.data.events.push({type,at:new Date().toISOString(),...detail});}
  phase(value){this.data.phase=value;this.event('phase',{value});}
  note(text){this.data.notes.push({text,at:new Date().toISOString(),phase:this.data.phase,trial:this.data.current?.number??null,afterFeedback:this.data.phase==='feedback'});}
  target(){
   if(this.data.trials.length>=this.data.planned){this.finish();return false;}
-  this.data.current={number:this.data.trials.length+1,target:makeTarget(this.data.exercise),startedAt:new Date().toISOString(),flags:[],part:1};
+  this.data.current={number:this.data.trials.length+1,target:makeTarget(this.data.exercise,randomInt,this.data.config),startedAt:new Date().toISOString(),flags:[],part:1};
   this.data.pending=null;this.phase('explore');return true;
  }
- propose(answer){if(!['explore','confirm'].includes(this.data.phase)||!EXERCISES[this.data.exercise].answers.includes(answer))return false;
+ propose(answer){if(!['explore','confirm'].includes(this.data.phase)||!exerciseFor(this.data).answers.includes(answer))return false;
   if(this.data.exercise==='compare'&&this.data.current.part!==2)return false;
   this.data.pending=answer;this.event('proposed',{answer});this.phase('confirm');return true;
  }
