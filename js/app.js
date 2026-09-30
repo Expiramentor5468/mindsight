@@ -1,6 +1,9 @@
-import {EXERCISES,COLORS,WEEKS,Session,parseIntent,stats,randomInt} from './core.js';
-import {Voice} from './voice.js?v=3.2.0';
-import {ReadinessCheck} from './readiness.js?v=3.2.0';
+import {EXERCISES,COLORS,WEEKS,Session,parseIntent,stats,randomInt} from './core.js?v=3.3.0';
+import {SessionRecorder,audioSegments,saveBlob} from './recording.js';
+import {replayDocument} from './replay.js';
+import {reflectionInput} from './reflection.js';
+import {Voice} from './voice.js?v=3.3.0';
+import {ReadinessCheck} from './readiness.js?v=3.3.0';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const percent=n=>n===null?'—':`${Math.round(n*100)}%`;
@@ -9,6 +12,7 @@ const key='mindsite-v3-sessions',prefKey='mindsite-v3-preferences';
 let records=[],preferences={rate:.94,spoken:true,large:false,theme:'system'},storageOK=true,storageBlocked=false;
 try {records=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(records))throw Error('bad records');preferences={...preferences,...JSON.parse(localStorage.getItem(prefKey)||'{}')};localStorage.setItem('mindsite-storage-check','ok');localStorage.removeItem('mindsite-storage-check');}catch{storageOK=false;storageBlocked=true;records=[];}
 let session=null,setup=null,mode='practice',voiceMode=true,checkPassed=false,sessionTimer=null,wake=null,checking=false,lastPrompt='',audioFault=false;
+const recorder=new SessionRecorder(message=>{$('#recordingStatus').textContent=message;});
 const voice=new Voice({onText:receive,onState:setVoiceState,onFault:voiceFault});
 const readiness=new ReadinessCheck({voice,challenge:()=>['one','two','three','four'][randomInt(4)],rate:()=>preferences.rate,onUpdate:state=>{
  checking=state.running;checkPassed=state.passed;
@@ -75,7 +79,9 @@ function receive(text){
  if(checking){readiness.hear(text);return;}
  if(!session||$('#sessionView').hidden)return;
  $('#lastHeard').textContent=`Heard: “${text}”`;
- session.event('utterance',{text});handle(parseIntent(text,session.data.exercise,session.data.phase));
+ session.event('utterance',{text});
+ if(session.data.phase==='reflection'){const d=session.data;const result=reflectionInput({draft:d.reflectionDraft||'',listening:!!d.reflectionListening},text);if(result.action!=='idle'){d.reflectionDraft=result.draft;d.reflectionListening=result.listening;if(result.action==='save')saveReflection();else {save();renderSession();if(result.action==='start')say('Reflection started. Speak freely. Say save reflection when you are finished, or cancel reflection to discard the draft.');if(result.action==='cancel')say('Reflection draft discarded.');}return;}}
+ handle(parseIntent(text,session.data.exercise,session.data.phase));
 }
 function setVoiceState(state){
  if(state==='listening')readiness.started();
@@ -94,9 +100,13 @@ function voiceFault(message){
 }
 async function begin(){
  if($('#beginButton').disabled)return;
+ const currentSetup=setup;
  readiness.reset();voiceMode=$('#inputMode').value==='voice';audioFault=false;
  const options={...setup,planned:Number($('#trialCount').value),condition:$('#condition').value,conditionNotes:$('#conditionNotes').value};
- session=new Session(options,setup.existing||null);
+ const candidate=new Session(options,setup.existing||null);
+ if($('#recordAudio').checked){$('#beginButton').disabled=true;try{await recorder.start(candidate.data.id);candidate.data.hasAudio=true;candidate.data.audioSegments??=[];candidate.data.audioSegments.push({startedAt:recorder.active.startedAt,id:recorder.active.segment,mimeType:recorder.active.recorder.mimeType||'browser-selected'});}catch(e){$('#setupError').textContent='Recording could not start: '+e.message+' Uncheck recording to continue without audio.';updateSetup();return;}}else $('#recordingStatus').textContent='Audio recording off';
+ if(!$('#setupDialog').open||setup!==currentSetup){await recorder.stop();return;}
+ session=candidate;session.data.reflectionListening=false;
  if(setup.existing){session.event('recovered');if(session.data.phase!=='paused')session.pause('Recovered after leaving the page');}
  session.data.inputMode=voiceMode?'voice':'touch';save();$('#setupDialog').close();$('#shell').hidden=true;$('#sessionView').hidden=false;$('#lastHeard').textContent='';$('#reconnectButton').hidden=true;
  window.scrollTo(0,0);requestWake();renderSession();
@@ -104,7 +114,7 @@ async function begin(){
  say(setup.existing?'Your session is saved. Say resume when you are ready.':introText());
 }
 function introText(){const ex=EXERCISES[session.data.exercise];return `${ex.name}. ${ex.description} Your choices are ${ex.answers.join(', ')}. Put on your blindfold when comfortable. The target will stay on screen. Say I am ready to begin. Say help at any time after I finish speaking.`;}
-function say(text){lastPrompt=text;$('#sessionPrompt').textContent=text;return voice.speak(text,{enabled:voiceMode||preferences.spoken,rate:preferences.rate});}
+function say(text){if(session){session.event('prompt',{text});save();}lastPrompt=text;$('#sessionPrompt').textContent=text;return voice.speak(text,{enabled:voiceMode||preferences.spoken,rate:preferences.rate});}
 function shortSay(text){if(!session.data.quiet)return say(text);}
 function clearSessionTimer(){clearTimeout(sessionTimer);sessionTimer=null;}
 function enterSettle(){session.phase('settle');save();renderSession();say('Let your shoulders and jaw soften. Breathe normally. Notice the support beneath you. There is nothing to force. Take a quiet moment, or say ready when you want to continue.');sessionTimer=setTimeout(()=>{if(session?.data.phase==='settle')shortSay('Take the time you need. Say ready to continue.');},120000);}
@@ -118,7 +128,7 @@ function startTarget(){clearSessionTimer();
  if(session.data.phase==='familiar'||['intro','baseline','settle'].includes(session.data.phase))session.event('practice-start');
  if(!session.target()){save();renderSession();onFinished();return;}
  save();renderSession();
- say(session.data.exercise==='compare'?'The first color is on screen. Explore it, then say second.':session.data.quiet?'Target ready.':'A target is on screen. Notice whatever comes up. Describe it, make an answer, or pass.');
+ say(session.data.exercise==='compare'?'The first color is on screen. Explore it, then say second.':session.data.quiet?'Target ready.':'A target is on screen. Notice whatever comes up. Describe it, say my answer is followed by your choice, or say pass.');
 }
 function next(){const p=session.data.phase;
  if(p==='intro'){if(session.data.guided)enterSettle();else startTarget();}
@@ -130,7 +140,7 @@ function next(){const p=session.data.phase;
  else if(p==='explore')say('This target is still open. Make an answer, or say pass to move on.');
 }
 function finish(){clearSessionTimer();session.finish();save();renderSession();releaseWake();onFinished();}
-function onFinished(){const s=stats(session.data);say(`Session complete. You can remove your blindfold, or stay for a reflection. You answered ${s.answered} targets, with ${s.correct} correct, and passed ${s.passed}. Say note followed by your reflection, repeat session, start measurement, or end session.`);}
+function onFinished(){const s=stats(session.data);say(`Session complete. You can remove your blindfold, or stay for a reflection. You answered ${s.answered} targets, with ${s.correct} correct, and passed ${s.passed}. Say start reflection, then speak freely. Say save reflection when finished. You can also say repeat session, start measurement, or finish session.`);}
 function handle(intent){
  if(!session)return;
  const d=session.data,p=d.phase;
@@ -150,7 +160,7 @@ function handle(intent){
  if(p==='reflection'){
   if(intent.type==='again'||intent.type==='measure'){repeatSession(intent.type==='measure'?'measurement':d.mode);return;}
   if(intent.type==='next'){leave();return;}
-  if(intent.type==='note'){session.note(intent.text.replace(/^note\s*/i,''));save();renderSession();shortSay('Reflection saved.');}else say('You can add a reflection, repeat session, start measurement, or end session.');return;
+  say('Say start reflection to dictate, save reflection when finished, or finish session to return home.');return;
  }
  if(intent.type==='ready'){
   if(p==='familiar'){startTarget();return;}if(['intro','settle','baseline'].includes(p)){next();return;}
@@ -176,8 +186,9 @@ function handle(intent){
 }
 function resumeText(){const p=session.data.phase;if(p==='confirm')return `Your answer ${session.data.pending} is waiting. Say yes to confirm, or no to change it.`;if(p==='explore')return 'Resumed. Your target is still on screen. Take your time.';if(p==='familiar')return `Resumed. The known example is ${familiarTarget().answer}. Say next or start practice.`;if(p==='feedback')return 'Resumed. Your response is recorded. Say next when ready.';return 'Resumed. Say ready or next when you want to continue.';}
 function helpText(){const ex=EXERCISES[session.data.exercise];return `${ex.description} Your choices are ${ex.answers.join(', ')}. ${session.data.phase==='familiar'?'This is familiarization. Say start practice for unknown targets.':'Describe impressions freely. To answer, say my answer is, followed by your choice. I will ask you to confirm.'} Say pass, more time, pause, less talking, or end session. ${session.data.exercise==='compare'?'Say second to move from the first color to the second.':''}`;}
-function repeatSession(newMode){
- const old=session.data;save();session=new Session({exercise:old.exercise,mode:newMode,planned:old.planned,condition:old.condition,conditionNotes:old.conditionNotes});session.data.inputMode=voiceMode?'voice':'touch';save();requestWake();renderSession();say(`A new ${newMode==='measurement'?'measurement':'practice'} block. ${newMode==='measurement'?'Feedback will wait until the end. ':''}Your previous session is saved. Say ready to begin.`);
+async function repeatSession(newMode){
+ const keepRecording=!!recorder.active;await recorder.stop();session.event('block-left');
+ const old=session.data;old.reflectionListening=false;save();session=new Session({exercise:old.exercise,mode:newMode,planned:old.planned,condition:old.condition,conditionNotes:old.conditionNotes});session.data.inputMode=voiceMode?'voice':'touch';if(keepRecording){try{await recorder.start(session.data.id);session.data.hasAudio=true;session.data.audioSegments=[{startedAt:recorder.active.startedAt,id:recorder.active.segment,mimeType:recorder.active.recorder.mimeType||'browser-selected'}];}catch(e){toast('New block audio could not start: '+e.message);}}save();requestWake();renderSession();say(`A new ${newMode==='measurement'?'measurement':'practice'} block. ${newMode==='measurement'?'Feedback will wait until the end. ':''}Your previous session is saved. Say ready to begin.`);
 }
 function renderTarget(){
  const d=session.data,ex=EXERCISES[d.exercise],visiblePhase=d.phase==='paused'?d.beforePause:d.phase,active=['familiar','explore','confirm','feedback'].includes(visiblePhase);
@@ -193,6 +204,7 @@ function renderTarget(){
 function action(label,action,primary=false){return `<button class="button ${primary?'primary':'secondary'}" data-action="${action}">${label}</button>`;}
 function renderSession(){
  const d=session.data,ex=EXERCISES[d.exercise],p=d.phase;renderTarget();
+ const visible=p==='paused'?d.beforePause:p;const target=['familiar','explore','confirm','feedback'].includes(visible)?(visible==='familiar'?familiarTarget():d.current?.target):null;const frame={phase:p,kind:ex.kind,target:target?structuredClone(target):null,part:d.current?.part||1,number:d.current?.number||null};const signature=JSON.stringify(frame);if(d.lastScreen!==signature){d.lastScreen=signature;session.event('screen',frame);save();}
  $('#sessionMode').textContent=`${ex.name} · ${d.mode==='measurement'?'Measurement':'Practice'}`;
  const titles={intro:'Make yourself comfortable.',settle:'Nothing to force.',baseline:'Notice what is already here.',familiar:'Get to know the target.',explore:'What do you notice?',confirm:'Is that your answer?',feedback:'A moment to notice.',paused:'Take a pause.',reflection:'Make room for reflection.'};
  $('#sessionTitle').textContent=titles[p]||'Take your time.';
@@ -212,7 +224,7 @@ function renderSession(){
  if(p==='feedback')actions=action('Stay with this','stay')+action(d.trials.length>=d.planned?'Finish & reflect →':'Next target →','next',true);
  if(p==='paused')actions=action('Resume →','resume',true)+action('Finish session','end');
  if(p==='reflection'){
-  $('#phaseExtra').innerHTML=summaryMarkup(d)+`<label for="reflectionText">What would you like to remember?</label><textarea id="reflectionText" maxlength="4000" placeholder="Something you noticed, or something to try next time…"></textarea><button class="button secondary small-button" id="saveReflection">Save reflection</button><p class="small">${d.notes.length} note${d.notes.length===1?'':'s'} saved. You can also dictate: “Note…”</p>`;
+  $('#phaseExtra').innerHTML=summaryMarkup(d)+`<label for="reflectionText">What would you like to remember?</label><textarea id="reflectionText" maxlength="4000" placeholder="Something you noticed, or something to try next time…">${escape(d.reflectionDraft||'')}</textarea><button class="button secondary small-button" id="startReflection">Start dictation</button><button class="button secondary small-button" id="saveReflection">Save reflection</button><p class="small">${d.notes.length} note${d.notes.length===1?'':'s'} saved. ${d.reflectionListening?'Dictating into your draft. Say “save reflection” to finish.':'Say “start reflection” to dictate, then “save reflection”. Silence never saves a reflection.'}</p>`;
   actions=action('Practice again','again',true)+action('Quiet measurement','measure')+action('Return to overview','home')+`<button class="button secondary" data-export="${escape(d.id)}">Export session ↓</button>`;
  }
  $('#sessionActions').innerHTML=actions;$('#pauseButton').textContent=p==='paused'?'Resume':'Pause';$('#pauseButton').hidden=p==='reflection';
@@ -220,9 +232,13 @@ function renderSession(){
 }
 async function requestWake(){try{if(navigator.wakeLock)wake=await navigator.wakeLock.request('screen');}catch{}}
 function releaseWake(){try{wake?.release();}catch{}wake=null;}
-function leave(){save();clearSessionTimer();voice.dispose();releaseWake();session=null;$('#sessionView').hidden=true;$('#shell').hidden=false;location.hash='home';route();}
+async function leave(){await recorder.stop();session?.event('session-left');if(session)session.data.reflectionListening=false;save();clearSessionTimer();voice.dispose();releaseWake();session=null;$('#sessionView').hidden=true;$('#shell').hidden=false;location.hash='home';route();}
 function download(data,name){const b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
+function saveReflection(){const d=session.data;const t=(d.reflectionDraft||'').trim();d.reflectionListening=false;if(t){session.note(t);d.reflectionDraft='';save();renderSession();say('Reflection saved.');}else {save();renderSession();toast('Your reflection draft is empty.');}}
+ document.addEventListener('input',e=>{if(e.target.id==='reflectionText'&&session){session.data.reflectionDraft=e.target.value;save();}});
+ async function exportSession(id){try{if(recorder.active?.id===id){session.event('recording-stopped');await recorder.stop();save();}const r=records.find(r=>r.id===id);$('#exportDescription').textContent=r.hasAudio?'Includes personal notes and microphone audio. Sharing is your choice.':'Includes targets, responses, prompts and personal notes.';$('#exportDialog').showModal();$('#exportJSON').onclick=()=>download(r,`mindsight-${id}.json`);$('#exportTranscript').onclick=()=>saveBlob(new Blob(['UNVERIFIED LIVE RECOGNITION — not a transcript generated from the recording.\n\n'+r.events.filter(e=>e.type==='utterance').map(e=>e.at+'  '+e.text).join('\n')],{type:'text/plain'}),`mindsight-${id}-recognition.txt`);$('#exportReplay').onclick=async()=>{try{const audio=r.hasAudio?await audioSegments(id):[];if(r.hasAudio&&!audio.length)toast('No saved audio was found. Exporting the screen replay only.');saveBlob(new Blob([await replayDocument(r,audio)],{type:'text/html'}),`mindsight-${id}-replay.html`);}catch(e){toast('Replay export failed: '+e.message);}};$('#exportAudio').hidden=!r.hasAudio;$('#exportAudio').onclick=async()=>{try{const segments=await audioSegments(id);if(!segments.length)toast('No saved audio found.');segments.forEach((s,i)=>saveBlob(s.blob,`mindsight-${id}-${i+1}.${s.blob.type.includes('ogg')?'ogg':s.blob.type.includes('mp4')?'m4a':'webm'}`));}catch(e){toast('Audio export failed: '+e.message);}};}catch(e){toast('Export failed: '+e.message);}}
+ $('#stopRecording').onclick=async()=>{if(session)session.event('recording-stopped');await recorder.stop();save();};
+ const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
 function applyTheme(){document.documentElement.dataset.theme=preferences.theme==='dark'||(preferences.theme!=='light'&&systemTheme.matches)?'dark':'light';}
 systemTheme.addEventListener('change',applyTheme);
 function applyPrefs(){applyTheme();$('#themeMode').value=preferences.theme||'system';document.documentElement.classList.toggle('large-text',preferences.large);$('#speechRate').value=String(preferences.rate);$('#spokenPrompts').checked=preferences.spoken;$('#largeText').checked=preferences.large;}
@@ -233,10 +249,11 @@ document.addEventListener('click',e=>{
  const start=e.target.closest('[data-start]');if(start){openSetup({exercise:start.dataset.start,mode:start.dataset.mode||mode,guided:start.dataset.guided==='true'});return;}
  const lesson=e.target.closest('[data-lesson]');if(lesson){const [w,l]=lesson.dataset.lesson.split('-').map(Number);const row=WEEKS[w];openSetup({exercise:row.exercises?.[l]||row.exercise,mode:w===3&&l===2?'measurement':'practice',guided:true,lesson:lesson.dataset.lesson,skipFamiliar:w===2&&l%2===0});return;}
  const resume=e.target.closest('[data-resume]');if(resume){const r=records.find(r=>r.id===resume.dataset.resume);openSetup({exercise:r.exercise,mode:r.mode,guided:r.guided,existing:r});return;}
- const exp=e.target.closest('[data-export]');if(exp){const r=records.find(r=>r.id===exp.dataset.export);download(r,`mindsight-${r.id}.json`);return;}
+ const exp=e.target.closest('[data-export]');if(exp){void exportSession(exp.dataset.export);return;}
  const act=e.target.closest('[data-action]');if(act){if(act.dataset.action==='home'){leave();return;}handle({type:act.dataset.action});return;}
  const answer=e.target.closest('[data-answer]');if(answer){handle({type:'answer',answer:answer.dataset.answer});return;}
- if(e.target.id==='saveReflection'){const t=$('#reflectionText').value.trim();if(t){session.note(t);save();renderSession();toast('Reflection saved.');}}
+ if(e.target.id==='startReflection')receive('start reflection');
+ if(e.target.id==='saveReflection')saveReflection();
 });
 $('#practiceMode').onclick=()=>setMode('practice');$('#measureMode').onclick=()=>setMode('measurement');
 function setMode(value){mode=value;$('#practiceMode').classList.toggle('selected',mode==='practice');$('#measureMode').classList.toggle('selected',mode==='measurement');$('#practiceMode').setAttribute('aria-pressed',String(mode==='practice'));$('#measureMode').setAttribute('aria-pressed',String(mode==='measurement'));$('#modeDescription').textContent=mode==='practice'?'Time to describe impressions, hear feedback, and stay with each target.':'One confirmed response per target. Feedback waits until the end. All passes and interruptions stay in your record.';}
@@ -246,7 +263,7 @@ $('#inputMode').onchange=()=>{readiness.reset();updateSetup();};
 $('#beginButton').onclick=begin;
 $('#setupDialog').addEventListener('close',()=>{if(!session)readiness.reset();});
 $('#settingsButton').onclick=()=>$('#settingsDialog').showModal();
-for(const id of ['speechRate','spokenPrompts','largeText','themeMode'])$('#'+id).onchange=()=>{preferences={theme:$('#themeMode').value,rate:Number($('#speechRate').value),spoken:$('#spokenPrompts').checked,large:$('#largeText').checked};applyPrefs();try{localStorage.setItem(prefKey,JSON.stringify(preferences));}catch{toast('Preferences could not be saved.');}};
+for(const id of ['speechRate','spokenPrompts','largeText','themeMode'])$('#'+id).onchange=()=>{preferences={...preferences,theme:$('#themeMode').value,rate:Number($('#speechRate').value),spoken:$('#spokenPrompts').checked,large:$('#largeText').checked};applyPrefs();try{localStorage.setItem(prefKey,JSON.stringify(preferences));}catch{toast('Preferences could not be saved.');}};
 $('#endButton').onclick=()=>handle({type:'end'});$('#pauseButton').onclick=()=>handle({type:session.data.phase==='paused'?'resume':'pause'});$('#helpButton').onclick=()=>handle({type:'help'});
 $('#sessionBrand').onclick=e=>{e.preventDefault();handle({type:'end'});};
 $('#reconnectButton').onclick=()=>{audioFault=false;voice.dispose();voice.enabled=voiceMode;$('#reconnectButton').hidden=true;say('Reconnecting. Say resume when the listening indicator is ready.');};
@@ -254,6 +271,14 @@ $('#commandForm').onsubmit=e=>{e.preventDefault();const value=$('#commandInput')
 $('#exportAll').onclick=()=>download({version:3,exportedAt:stamp(),sessions:records},'mindsight-journal.json');
 $('#exportLegacy').onclick=()=>{try{const raw=localStorage.getItem('ml2-sessions');if(!raw){$('#legacyStatus').textContent='No earlier records found in this browser.';return;}download({legacy:true,rawSessions:JSON.parse(raw)},'mindsight-lab-earlier-records.json');}catch{$('#legacyStatus').textContent='Earlier records could not be read.';}};
 document.addEventListener('keydown',e=>{if(!session||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement?.tagName))return;if(e.code==='Space'||e.key==='Escape'){e.preventDefault();voice.cancel();handle({type:session.data.phase==='paused'?'resume':'pause'});}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&session?.data.status==='active'){clearSessionTimer();session.pause('Page moved to the background');voice.dispose();session.event('backgrounded');save();renderSession();$('#sessionPrompt').textContent='Paused while the page was in the background. Reconnect voice, then resume.';$('#reconnectButton').hidden=!voiceMode;audioFault=voiceMode;releaseWake();}else if(!document.hidden&&session)requestWake();});
-window.addEventListener('pagehide',()=>{if(session?.data.status==='active'){session.pause('Page closed or refreshed');save();}voice.dispose();releaseWake();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&session?.data.status==='active'){clearSessionTimer();void recorder.stop();session.pause('Page moved to the background');voice.dispose();session.event('backgrounded');save();renderSession();$('#sessionPrompt').textContent='Paused while the page was in the background. Reconnect voice, then resume.';$('#reconnectButton').hidden=!voiceMode;audioFault=voiceMode;releaseWake();}else if(!document.hidden&&session)requestWake();});
+window.addEventListener('pagehide',()=>{void recorder.stop();if(session?.data.status==='active'){session.pause('Page closed or refreshed');save();}voice.dispose();releaseWake();});
 if(!storageOK)toast('Storage could not be read. Your existing data has not been overwritten.');
+
+let readerTools=[];
+function readerConfig(){return {mode:$('#readerMode').value,url:$('#readerURL').value.trim(),model:$('#readerModel').value.trim()||'tts-1',voice:$('#readerVoice').value.trim()||'alloy',tool:$('#readerTool').value,arguments:$('#readerArguments').value};}
+function saveReader(){preferences.reader=readerConfig();voice.reader.configure(preferences.reader,$('#readerToken').value);try{localStorage.setItem(prefKey,JSON.stringify(preferences));}catch{toast('Reader preferences could not be saved.');}}
+const savedReader=preferences.reader||{mode:'browser'};for(const [id,field] of [['readerMode','mode'],['readerURL','url'],['readerModel','model'],['readerVoice','voice'],['readerArguments','arguments']]){if(savedReader[field])$('#'+id).value=savedReader[field];$('#'+id).onchange=saveReader;}if(savedReader.tool){const option=new Option(savedReader.tool,savedReader.tool);$('#readerTool').add(option);$('#readerTool').value=savedReader.tool;}voice.reader.configure(savedReader);$('#readerToken').onchange=saveReader;$('#readerTool').onchange=()=>{saveReader();$('#readerSchema').textContent=JSON.stringify(readerTools.find(t=>t.name===$('#readerTool').value)?.inputSchema||{},null,2);};
+$('#discoverReader').onclick=async()=>{saveReader();$('#readerStatus').textContent='Connecting…';try{if($('#readerMode').value!=='mcp')throw Error('Select Local MCP first.');readerTools=await voice.reader.list();$('#readerTool').replaceChildren(new Option('Select a speech tool',''));for(const t of readerTools)$('#readerTool').add(new Option(t.name,t.name));$('#readerStatus').textContent='Choose a speech tool and match its input schema below. Discovery does not invoke tools.';}catch(e){$('#readerStatus').textContent=e.message+' Check the endpoint, CORS and local-network permissions.';}};
+$('#testReader').onclick=async()=>{saveReader();$('#readerStatus').textContent='Testing selected voice…';try{if(voice.reader.config.mode==='browser'){await voice.speak('Your MindSight voice reader is ready.',{rate:preferences.rate});}else await voice.reader.speak('Your MindSight voice reader is ready.');$('#readerStatus').textContent='Test finished. Confirm that you heard the phrase before starting a voice session.';}catch(e){$('#readerStatus').textContent='Could not play: '+e.message+' Check CORS and local-network permissions.';}};
+$('#settingsDialog').addEventListener('close',()=>voice.reader.cancel());

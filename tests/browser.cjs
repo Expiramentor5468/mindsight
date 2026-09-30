@@ -46,7 +46,7 @@ const {chromium}=require(require.resolve('playwright',{paths:[process.env.CODEX_
  await page.locator('#reconnectButton').click();await page.waitForTimeout(450);await command('resume');
  await command('pass');assert.equal((await state()).trials[1].status,'passed');
  await command('end session');assert.equal((await state()).status,'complete');
- await command('note felt relaxed today');assert.ok((await state()).notes.some(n=>n.text==='felt relaxed today'));
+ await command('start reflection');await command('felt relaxed today');await command('save reflection');assert.ok((await state()).notes.some(n=>n.text==='felt relaxed today'));
  await command('start measurement');assert.equal((await state()).mode,'measurement');
  await command('ready');await command('my answer is red');await command('yes');
  assert.equal(await page.locator('#sessionPrompt').textContent(),'Response recorded. Say next when ready.');

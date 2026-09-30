@@ -1,3 +1,4 @@
+import {LocalReader} from './local-reader.js';
 import {LocalSpeech} from './local-speech.js?v=3.2.0';
 // Recognition is deliberately suspended during playback: synthesized answers must
 // never be interpreted as the user's next answer. Listen after each short prompt.
@@ -5,7 +6,7 @@ export class Voice {
  constructor({onText,onState,onFault}) {
   this.onText=onText;this.onState=onState;this.onFault=onFault;
   this.Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  this.local=new LocalSpeech();this.engine='auto';this.failedStarts=0;this.enabled=false;this.speaking=false;this.active=null;this.generation=0;this.restart=null;this.watchdog=null;this.cancelSpeech=null;
+  this.reader=new LocalReader();this.local=new LocalSpeech();this.engine='auto';this.failedStarts=0;this.enabled=false;this.speaking=false;this.active=null;this.generation=0;this.restart=null;this.watchdog=null;this.cancelSpeech=null;
  }
  get usesLocal(){return this.engine==='local'||!this.Recognition;}
  get available(){return window.isSecureContext&&(this.usesLocal?this.local.supported:!!this.Recognition);}
@@ -39,6 +40,11 @@ export class Voice {
   this.cancel();
   const token=++this.generation;
   if(!enabled)return;
+  if(this.reader.config.mode!=='browser'){
+   this.speaking=true;this.halt();this.onState('speaking');
+   try{await this.reader.speak(text);}catch(e){if(token===this.generation)this.onFault('Spoken audio from the local service failed: '+e.message+' Check Settings and the service’s CORS permissions.');}
+   if(token!==this.generation)return;this.speaking=false;this.restart=setTimeout(()=>{if(token===this.generation){if(this.enabled)this.start();else this.onState('off');}},350);return;
+  }
   if(!window.speechSynthesis){this.onFault('Spoken audio is unavailable in this browser. Choose touch mode or another browser.');return;}
   this.speaking=true;this.halt();this.onState('speaking');
   await new Promise(resolve=>{
@@ -57,6 +63,6 @@ export class Voice {
   this.speaking=false;
   this.restart=setTimeout(()=>{if(token===this.generation){if(this.enabled)this.start();else this.onState('off');}},350);
  }
- cancel(){this.generation++;this.cancelSpeech?.();if(window.speechSynthesis)speechSynthesis.cancel();this.speaking=false;}
+ cancel(){this.generation++;this.reader.cancel();this.cancelSpeech?.();if(window.speechSynthesis)speechSynthesis.cancel();this.speaking=false;}
  dispose(){this.cancel();this.stop();this.local.cancelLoad();}
 }
