@@ -12,7 +12,7 @@ const key='mindsite-v3-sessions',prefKey='mindsite-v3-preferences';
 let records=[],preferences={rate:.94,spoken:true,large:false,theme:'system'},storageOK=true,storageBlocked=false;
 try {records=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(records))throw Error('bad records');preferences={...preferences,...JSON.parse(localStorage.getItem(prefKey)||'{}')};localStorage.setItem('mindsite-storage-check','ok');localStorage.removeItem('mindsite-storage-check');}catch{storageOK=false;storageBlocked=true;records=[];}
 let session=null,setup=null,mode='practice',voiceMode=true,checkPassed=false,sessionTimer=null,wake=null,checking=false,lastPrompt='',audioFault=false;
-const recorder=new SessionRecorder(message=>{$('#recordingStatus').textContent=message;});
+const recorder=new SessionRecorder(message=>{$('#recordingStatus').textContent=message;$('#stopRecording').disabled=!recorder.active;});
 const voice=new Voice({onText:receive,onState:setVoiceState,onFault:voiceFault});
 const readiness=new ReadinessCheck({voice,challenge:()=>['one','two','three','four'][randomInt(4)],rate:()=>preferences.rate,onUpdate:state=>{
  checking=state.running;checkPassed=state.passed;
@@ -224,7 +224,7 @@ function renderSession(){
  if(p==='feedback')actions=action('Stay with this','stay')+action(d.trials.length>=d.planned?'Finish & reflect →':'Next target →','next',true);
  if(p==='paused')actions=action('Resume →','resume',true)+action('Finish session','end');
  if(p==='reflection'){
-  $('#phaseExtra').innerHTML=summaryMarkup(d)+`<label for="reflectionText">What would you like to remember?</label><textarea id="reflectionText" maxlength="4000" placeholder="Something you noticed, or something to try next time…">${escape(d.reflectionDraft||'')}</textarea><button class="button secondary small-button" id="startReflection">Start dictation</button><button class="button secondary small-button" id="saveReflection">Save reflection</button><p class="small">${d.notes.length} note${d.notes.length===1?'':'s'} saved. ${d.reflectionListening?'Dictating into your draft. Say “save reflection” to finish.':'Say “start reflection” to dictate, then “save reflection”. Silence never saves a reflection.'}</p>`;
+  $('#phaseExtra').innerHTML=summaryMarkup(d)+`<label for="reflectionText">What would you like to remember?</label><textarea id="reflectionText" maxlength="4000" placeholder="Something you noticed, or something to try next time…">${escape(d.reflectionDraft||'')}</textarea><button class="button secondary small-button" id="startReflection" ${voiceMode?'':'hidden'}>Start dictation</button><button class="button secondary small-button" id="saveReflection">Save reflection</button><p class="small">${d.notes.length} note${d.notes.length===1?'':'s'} saved. ${d.reflectionListening?'Dictating into your draft. Say “save reflection” to finish.':'Say “start reflection” to dictate, then “save reflection”. Silence never saves a reflection.'}</p>`;
   actions=action('Practice again','again',true)+action('Quiet measurement','measure')+action('Return to overview','home')+`<button class="button secondary" data-export="${escape(d.id)}">Export session ↓</button>`;
  }
  $('#sessionActions').innerHTML=actions;$('#pauseButton').textContent=p==='paused'?'Resume':'Pause';$('#pauseButton').hidden=p==='reflection';
