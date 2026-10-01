@@ -1,4 +1,4 @@
-import {normalize} from './core.js';
+import {normalize} from './core.js?v=3.5.0';
 // Silence and recognizer sentence boundaries never commit a reflection.
 export function reflectionInput(state,text){
  const t=normalize(text);

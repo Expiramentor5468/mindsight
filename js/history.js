@@ -1,4 +1,4 @@
-import {EXERCISES,exerciseFor,SHAPES,COLORS} from './core.js?v=3.4.0';
+import {EXERCISES,exerciseFor,SHAPES,COLORS} from './core.js?v=3.5.0';
 const phases=['intro','settle','baseline','familiar','explore','confirm','feedback','paused','reflection'];
 const date=v=>typeof v==='string'&&Number.isFinite(Date.parse(v));
 const integer=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
@@ -13,7 +13,7 @@ export function validateSession(raw){
  assert(Array.isArray(raw.trials)&&raw.trials.length<=10000&&Array.isArray(raw.notes)&&Array.isArray(raw.events),'Missing session history arrays.');
  assert(typeof raw.condition==='string'&&(raw.conditionNotes===undefined||typeof raw.conditionNotes==='string'),'Invalid conditions.');
  const numbers=new Set();for(const t of raw.trials){assert(integer(t.number,1,10000)&&!numbers.has(t.number)&&['answered','passed','interrupted'].includes(t.status),'Invalid or duplicate trial.');numbers.add(t.number);target(t.target,ex);assert(t.status!=='answered'||ex.answers.includes(t.answer),'Invalid recorded answer.');assert(Array.isArray(t.flags)&&t.flags.every(x=>typeof x==='string'),'Invalid trial flags.');assert(date(t.at),'Invalid trial timestamp.');}
- for(const n of raw.notes)assert(typeof n.text==='string'&&date(n.at)&&(n.trial==null||integer(n.trial,1,10000)),'Invalid note.');
+ for(const n of raw.notes){assert(typeof n.text==='string'&&date(n.at)&&(n.trial==null||integer(n.trial,1,10000)),'Invalid note.');if(n.targetSnapshot)target(n.targetSnapshot,ex);}
  for(const e of raw.events){assert(e&&typeof e.type==='string'&&date(e.at),'Invalid event.');if(e.type==='screen'){assert(['color','compare','shape','orientation','symbol','location'].includes(e.kind)&&phases.includes(e.phase),'Invalid screen event.');if(e.target)target(e.target,ex);}}
  if(raw.current){assert(integer(raw.current.number,1,10000)&&Array.isArray(raw.current.flags),'Invalid current target.');target(raw.current.target,ex);}
  assert(raw.pending==null||ex.answers.includes(raw.pending),'Invalid pending answer.');

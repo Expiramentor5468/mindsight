@@ -1,5 +1,5 @@
-import {LocalReader} from './local-reader.js';
-import {LocalSpeech} from './local-speech.js?v=3.2.0';
+import {LocalReader} from './local-reader.js?v=3.5.0';
+import {LocalSpeech} from './local-speech.js?v=3.5.0';
 // Recognition is deliberately suspended during playback: synthesized answers must
 // never be interpreted as the user's next answer. Listen after each short prompt.
 export class Voice {
@@ -8,18 +8,19 @@ export class Voice {
   this.Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   this.reader=new LocalReader();this.local=new LocalSpeech();this.engine='auto';this.failedStarts=0;this.enabled=false;this.speaking=false;this.active=null;this.generation=0;this.restart=null;this.watchdog=null;this.cancelSpeech=null;
  }
- get usesLocal(){return this.engine==='local'||!this.Recognition;}
+ get usesLocal(){return this.engine==='local'||!this.Recognition||navigator.onLine===false;}
  get available(){return window.isSecureContext&&(this.usesLocal?this.local.supported:!!this.Recognition);}
  get needsPreparation(){return this.usesLocal&&!this.local.ready;}
  prepare(){return this.local.prepare();}
  listen(){this.failedStarts=0;this.enabled=true;this.start();}
  start(){
   clearTimeout(this.restart);
-  if(!this.enabled||this.speaking||this.active||!this.available)return;
+  if(!this.enabled||this.speaking||!this.available)return;
+  if(this.active){this.active.resume?.();return;}
   const r=this.usesLocal?this.local.createRecognition():new this.Recognition();this.active=r;
   r.lang='en-US';r.continuous=true;r.interimResults=false;r.maxAlternatives=1;
   let started=false;
-  r.onstart=()=>{if(this.active!==r)return;started=true;this.failedStarts=0;clearTimeout(this.watchdog);this.onState('listening');};
+  r.onstart=()=>{if(this.active!==r)return;started=true;this.failedStarts=0;clearTimeout(this.watchdog);if(!this.speaking)this.onState('listening');};
   r.onresult=e=>{if(this.active!==r||this.speaking||!this.enabled)return;
    for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)this.onText(e.results[i][0].transcript);
   };
@@ -34,6 +35,7 @@ export class Voice {
   try {this.onState('connecting');r.start();this.watchdog=setTimeout(()=>{if(this.active===r&&!started)this.fail('The microphone did not start. Try reconnecting.');},this.usesLocal?20000:7000);}catch{this.fail('The microphone could not start. Try reconnecting.');}
  }
  halt(){clearTimeout(this.restart);clearTimeout(this.watchdog);const r=this.active;this.active=null;if(r)try{r.abort();}catch{};}
+ suspend(){clearTimeout(this.restart);if(this.active?.suspend)this.active.suspend();else this.halt();}
  stop(){this.enabled=false;this.halt();this.onState('off');}
  fail(message){this.stop();this.onFault(message);}
  async speak(text,{enabled=true,rate=0.94}={}) {
@@ -41,12 +43,12 @@ export class Voice {
   const token=++this.generation;
   if(!enabled)return;
   if(this.reader.config.mode!=='browser'){
-   this.speaking=true;this.halt();this.onState('speaking');
+   this.speaking=true;this.suspend();this.onState('speaking');
    try{await this.reader.speak(text);}catch(e){if(token===this.generation)this.onFault('Spoken audio from the local service failed: '+e.message+' Check Settings and the service’s CORS permissions.');}
    if(token!==this.generation)return;this.speaking=false;this.restart=setTimeout(()=>{if(token===this.generation){if(this.enabled)this.start();else this.onState('off');}},350);return;
   }
   if(!window.speechSynthesis){this.onFault('Spoken audio is unavailable in this browser. Choose touch mode or another browser.');return;}
-  this.speaking=true;this.halt();this.onState('speaking');
+  this.speaking=true;this.suspend();this.onState('speaking');
   await new Promise(resolve=>{
    let done=false;let timer;
    const finish=error=>{if(done)return;done=true;clearTimeout(timer);this.cancelSpeech=null;this.utterance=null;resolve();if(error&&token===this.generation)this.onFault('Spoken audio could not play. Check that this tab is not muted and your device has a speech voice available, then retry.');};

@@ -1,4 +1,4 @@
-import {shapeSVG} from './targets.js?v=3.4.0';
+import {shapeSVG} from './targets.js?v=3.5.0';
 const safeJSON=value=>JSON.stringify(value).replace(/</g,'\\u003c');
 const dataURL=blob=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob);});
 export function replayPlayer(session,segments,shapeSVG){

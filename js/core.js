@@ -1,4 +1,4 @@
-export const VERSION = '3.4';
+export const VERSION = '3.5';
 export const COLORS = {red:'#e14640',blue:'#3076dc',yellow:'#f4cb38',green:'#359b68'};
 export const EXERCISES = {
   color2:{name:'First colors',kind:'color',answers:['red','blue'],description:'Start with two distinct colors. Notice an impression, then make your choice.',icon:'colors',category:'FOUNDATION'},
@@ -62,7 +62,7 @@ export function parseAnswer(text,id,config) {
 }
 export function parseIntent(text,id,phase,config) {
  const t=normalize(text);
- const commands={pause:['pause','pause session','stop','wait'],resume:['resume','continue','continue session'],end:['end session','and session','end the session','and the session','end this session','finish session','finish the session','finish','quit session','stop session'],next:['next','next target','next one','move on'],second:['second','show second','next color','target two'],pass:['pass','skip','skip this'],help:['help','help me','explain that','what am i doing','what are my options'],repeat:['repeat','repeat that','say that again'],quiet:['less talking','quiet mode'],more:['more talking','full guidance'],stay:['more time','stay','stay with this','nothing yet','i dont see anything'],ready:['im ready','i am ready','begin','start practice','ready'],yes:['yes','correct','confirm','thats right'],no:['no','cancel answer','you misheard me'],reflect:['reflection','reflect'],again:['repeat session','repeat exercise','another session'],measure:['start measurement','measurement'],listening:['are you listening','listening status'],leak:['i can see around the mask','light leak','mask problem']};
+ const commands={startRecording:['resume recording','start recording'],stopRecording:['stop recording','pause recording'],pause:['pause','pause session','stop','wait'],resume:['resume','continue','continue session'],end:['end session','and session','end the session','and the session','end this session','finish session','finish the session','finish','quit session','stop session'],next:['next','next target','next one','move on'],second:['second','show second','next color','target two'],pass:['pass','skip','skip this'],help:['help','help me','explain that','what am i doing','what are my options'],repeat:['repeat','repeat that','say that again'],quiet:['less talking','quiet mode'],more:['more talking','full guidance'],stay:['more time','stay','stay with this','nothing yet','i dont see anything'],ready:['im ready','i am ready','begin','start practice','ready'],yes:['yes','correct','confirm','thats right'],no:['no','cancel answer','you misheard me'],reflect:['reflection','reflect'],again:['repeat session','repeat exercise','another session'],measure:['start measurement','measurement'],listening:['are you listening','listening status'],leak:['i can see around the mask','light leak','mask problem']};
  for(const [type,values] of Object.entries(commands)) if(values.includes(t)) return {type,text};
  if(/^(my answer(?: is)?|i choose|i pick)\b/.test(t) || (phase==='confirm' && /^(no )?i said\b/.test(t))) {
   return {type:'answer',answer:parseAnswer(t,id,config),text};
@@ -85,7 +85,7 @@ export class Session {
  }
  event(type,detail={}){this.data.events.push({type,at:new Date().toISOString(),...detail});}
  phase(value){this.data.phase=value;this.event('phase',{value});}
- note(text){this.data.notes.push({text,at:new Date().toISOString(),phase:this.data.phase,trial:this.data.current?.number??null,afterFeedback:this.data.phase==='feedback'});}
+ note(text,targetSnapshot=null){this.data.notes.push({text,at:new Date().toISOString(),phase:this.data.phase,trial:this.data.phase==='reflection'?null:this.data.current?.number??null,afterFeedback:this.data.phase==='feedback',...(targetSnapshot?{targetSnapshot:structuredClone(targetSnapshot)}:{})});}
  target(){
   if(this.data.trials.length>=this.data.planned){this.finish();return false;}
   this.data.current={number:this.data.trials.length+1,target:makeTarget(this.data.exercise,randomInt,this.data.config),startedAt:new Date().toISOString(),flags:[],part:1};

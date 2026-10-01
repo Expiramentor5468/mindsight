@@ -1,4 +1,6 @@
-# Session recordings and local readers (3.4)
+# Session recordings and local readers
+
+See [the 3.5 guide](learning-journal-offline.md) for complete audio backups, direct replay, recording recovery and offline use. The sections below document the original 3.4 behavior where noted.
 
 Backup before this release: `backup/pre-session-recording-2026-09-30`, commit `15ef0731f4f39fc42bcc13a1f51a886953558960`.
 
@@ -50,7 +52,7 @@ Outside sessions, Go to… (Ctrl/Cmd+K) searches pages, exercises, custom setup 
 
 On-device setup opens a confirmation describing the approximately 40 MB model plus 6 MB engine before loading. Cancel is available both before download and while preparation runs. Labels are browser-neutral; compatible Zen/Firefox/Chrome/Edge installations can use the same engine. Capability detection and the spoken check remain required.
 
-Journal → Import history accepts individual session JSON, journal JSON, arrays, and earlier Mindsight Lab exports. Preview lists additions and duplicate IDs. Validation rejects malformed modern sessions; existing IDs are skipped, never overwritten. Older schema records are preserved in separate viewable/exportable archives rather than reinterpreted as new scores. Audio is not part of JSON history; attach it to a replay separately.
+Journal → Import history accepts individual session JSON, journal JSON, arrays, and earlier Mindsight Lab exports. Preview lists additions and duplicate IDs. Validation rejects malformed modern sessions; existing IDs are skipped, never overwritten. Older schema records are preserved in separate viewable/exportable archives rather than reinterpreted as new scores. Text-only JSON history does not include audio; 3.5 complete backups do. Separate audio can also be attached to a replay.
 
 Export → Watch replay opens a simulated screen player. Download playable replay saves the same player as standalone HTML. It has play/pause, restart, ±10 seconds, scrubbing, 0.5×–3× speed, volume/mute, fullscreen and keyboard shortcuts. Embedded audio follows its recorded timestamps and playback speed; during audio playback the visual clock follows the audio. A local audio file can replace embedded audio, with an offset control for manual synchronization. Positive offsets start audio later; negative offsets skip audio preceding the session. External attachments and offset changes are for that viewing session and are not embedded back into the file.
 

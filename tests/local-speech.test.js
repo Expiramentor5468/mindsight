@@ -27,3 +27,8 @@ test('denied microphone access produces an actionable recognition error',async()
  const f=fixture(async()=>{throw Object.assign(Error('denied'),{name:'NotAllowedError'});});const r=f.local.createRecognition();let error;
  r.onerror=e=>error=e.error;await r.start();assert.equal(error,'not-allowed');
 });
+test('guide playback suspends decoding without cycling the microphone, and late results cannot become answers',async()=>{
+ let requests=0;const media=stream(),f=fixture(async()=>{requests++;return media;}),r=f.local.createRecognition(),text=[];r.onresult=e=>text.push(e.results[0][0].transcript);
+ const context=await f.local.audioContext();f.local.context=context;await r.start();const old=f.recognizer;r.suspend();assert.equal(media.track.stopped,false);old.events.result({result:{text:'yes'}});assert.equal(text.length,0);
+ r.resume();assert.equal(requests,1);assert.notEqual(f.recognizer,old);old.events.result({result:{text:'red'}});assert.equal(text.length,0);f.recognizer.events.result({result:{text:'my answer is blue'}});assert.deepEqual(text,['my answer is blue']);r.abort();assert.equal(media.track.stopped,true);
+});
